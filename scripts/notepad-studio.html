@@ -589,19 +589,35 @@
     font-size: 11.5px;
     color: var(--text-secondary);
   }
+  #editorMount, #secondaryEditorMount {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+  }
   .CodeMirror {
     flex: 1;
-    height: 100%;
+    height: 100% !important;
+    min-height: 0;
+    overflow: hidden;
     font-family: var(--font-mono);
     font-size: 13.5px;
     line-height: 1.55;
     background: transparent;
     color: var(--text-primary);
   }
+  .CodeMirror-scroll {
+    box-sizing: border-box;
+  }
   .CodeMirror-gutters {
     background: var(--gutter-bg);
     border-right: 1px solid var(--border);
     white-space: nowrap;
+    box-sizing: border-box;
   }
   .CodeMirror-linenumber {
     color: var(--text-muted);
@@ -1225,6 +1241,7 @@
       <svg class="icon" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
       <span>Open</span>
     </button>
+    <button class="btn" id="btnLoadExamples" title="Load Starter Demo Files (welcome.txt, demo.js, package.json)">📚 Examples</button>
     <button class="btn btn-primary" id="btnSaveFile" title="Save Active File (Ctrl+S)">
       <svg class="icon" viewBox="0 0 24 24"><path d="M17 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V7l-4-4zm-5 16a3 3 0 110-6 3 3 0 010 6zm3-10H5V5h10v4z"/></svg>
       <span>Save</span>
@@ -1382,7 +1399,7 @@
   <!-- Primary + Secondary Split Editor Area -->
   <div class="editor-workspace-split">
     <main class="editor-container" id="editorContainer">
-      <div id="editorMount" style="width:100%; height:100%;"></div>
+      <div id="editorMount"></div>
 
       <!-- Floating Find & Replace Panel -->
       <div class="find-replace-panel" id="findReplacePanel">
@@ -1423,6 +1440,7 @@
         </div>
         <div style="display:flex; align-items:center; gap:6px;">
           <button class="btn btn-sm" id="btnCompareDiff" title="Toggle Live Diff Comparison">⚖️ Compare Diff</button>
+          <button class="btn btn-sm" id="btnExportDiff" title="Export Unified Diff (.diff) between Primary and Reference tabs">📥 Export Diff</button>
           <label class="ribbon-btn" style="display:flex; align-items:center; gap:4px; cursor:pointer; margin:0;">
             <input type="checkbox" id="btnSyncSplitScroll" style="accent-color:var(--accent);">
             🔗 Sync Scroll
@@ -1430,7 +1448,7 @@
           <button class="btn btn-sm btn-icon" id="btnCloseSplit" title="Close Split View">✕</button>
         </div>
       </div>
-      <div id="secondaryEditorMount" style="flex:1; width:100%; height:100%; overflow:hidden;"></div>
+      <div id="secondaryEditorMount"></div>
     </section>
   </div>
   <div class="column-ruler" id="columnRuler"></div>
@@ -1877,6 +1895,11 @@
       if (e.dataTransfer && e.dataTransfer.files.length) {
         handleFiles(e.dataTransfer.files);
       }
+    });
+
+    requestAnimationFrame(function() {
+      if (editor) editor.refresh();
+      if (secondaryEditor) secondaryEditor.refresh();
     });
   }
 
@@ -3077,8 +3100,15 @@
       }
     } catch (e) {}
 
-    tabs = [
-      createTab('welcome.txt',
+    tabs = getStarterTabsData().map(function(st) {
+      return createTab(st.name, st.content, st.mode);
+    });
+    activeTabId = tabs[0].id;
+  }
+
+  function getStarterTabsData() {
+    return [
+      { name: 'welcome.txt', mode: 'text', content:
 `==========================================================================
 Welcome to Notepad++ Studio IDE 🚀
 A fast, modern, polyglot code editor for web developers & power users.
@@ -3103,8 +3133,8 @@ SHORTCUT CHEATSHEET:
 - Ctrl+/         Toggle Comment
 - Alt+Z          Toggle Word Wrap
 - Ctrl+B         Toggle Sidebar Explorer
-`, 'text'),
-      createTab('demo.js',
+` },
+      { name: 'demo.js', mode: 'javascript', content:
 `// JavaScript Demonstration with Symbol Outline
 class DataPipeline {
   constructor(name) {
@@ -3125,8 +3155,8 @@ class DataPipeline {
 function calculateChecksum(payload) {
   return btoa(JSON.stringify(payload)).slice(0, 16);
 }
-`, 'javascript'),
-      createTab('package.json',
+` },
+      { name: 'package.json', mode: 'json', content:
 `{
   "name": "notepad-studio-ide",
   "version": "1.1.0",
@@ -3140,9 +3170,73 @@ function calculateChecksum(payload) {
     "error-log-drawer"
   ]
 }
-`, 'json')
+` }
     ];
-    activeTabId = tabs[0].id;
+  }
+
+  function loadStarterExamples() {
+    const starter = getStarterTabsData();
+    let focusId = null;
+    starter.forEach(function(st) {
+      const existing = tabs.find(function(t) { return t.name === st.name; });
+      if (existing) {
+        if (!focusId) focusId = existing.id;
+        return;
+      }
+      const newTab = createTab(st.name, st.content, st.mode);
+      tabs.push(newTab);
+      if (st.name === 'welcome.txt') focusId = newTab.id;
+    });
+    if (focusId) selectTab(focusId);
+    renderTabs();
+    renderSidebarFiles();
+    populateSplitTabSelect();
+    scheduleSave();
+    showToast('Restored Starter Demo Files!');
+  }
+
+  function exportDiffFile() {
+    const primaryTab = getActiveTab();
+    if (!primaryTab || !editor) return;
+
+    const splitId = document.getElementById('splitTabSelect').value;
+    const refTab = tabs.find(function(t) { return t.id === splitId; }) || primaryTab;
+    const primaryLines = editor.getValue().split('\n');
+    const refLines = (secondaryEditor && splitId ? secondaryEditor.getValue() : (refTab.content || '')).split('\n');
+
+    const diffLines = [];
+    diffLines.push('--- a/' + primaryTab.name + '\t(Primary Editor)');
+    diffLines.push('+++ b/' + refTab.name + '\t(Split Reference)');
+    diffLines.push('@@ -1,' + primaryLines.length + ' +1,' + refLines.length + ' @@');
+    const maxLen = Math.max(primaryLines.length, refLines.length);
+    for (let i = 0; i < maxLen; i++) {
+      if (i < primaryLines.length && i < refLines.length) {
+        if (primaryLines[i] === refLines[i]) {
+          diffLines.push(' ' + primaryLines[i]);
+        } else {
+          diffLines.push('-' + primaryLines[i]);
+          diffLines.push('+' + refLines[i]);
+        }
+      } else if (i < primaryLines.length) {
+        diffLines.push('-' + primaryLines[i]);
+      } else {
+        diffLines.push('+' + refLines[i]);
+      }
+    }
+    const diffText = diffLines.join('\n') + '\n';
+    const diffFilename = primaryTab.name + '-vs-' + refTab.name + '.diff';
+
+    const blob = new Blob([diffText], { type: 'text/x-diff;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = diffFilename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    showToast('Exported Unified Diff: ' + diffFilename);
   }
 
   // Fix 5: Normalize CRLF vs LF line endings on file save
@@ -3233,6 +3327,7 @@ function calculateChecksum(payload) {
       }
     };
 
+    document.getElementById('btnLoadExamples').onclick = loadStarterExamples;
     document.getElementById('btnSaveFile').onclick = function() { saveFileNativeOrFallback(false); };
     document.getElementById('btnSaveAs').onclick = function() {
       saveFileNativeOrFallback(true);
@@ -3464,6 +3559,7 @@ function calculateChecksum(payload) {
 
     // Split View: Diff & Sync Scroll
     document.getElementById('btnCompareDiff').onclick = toggleCompareDiff;
+    document.getElementById('btnExportDiff').onclick = exportDiffFile;
     document.getElementById('btnSyncSplitScroll').onchange = function(e) {
       syncSplitScrollActive = e.target.checked;
       showToast('Sync scroll ' + (syncSplitScrollActive ? 'enabled' : 'disabled'));
@@ -3574,7 +3670,6 @@ function calculateChecksum(payload) {
         await writable.close();
         fileHandles.set(tab.id, handle);
         renameTab(tab.id, handle.name);
-        fileHandles.set(tab.id, handle);
         tab.savedContent = content;
         tab.dirty = false;
         updateSaveIndicator(false);
@@ -3672,6 +3767,8 @@ function calculateChecksum(payload) {
     { title: 'Save File As...', category: 'File', shortcut: 'Ctrl+Shift+S', action: function() { saveFileNativeOrFallback(true); } },
     { title: 'Toggle Split View', category: 'View', action: function() { document.getElementById('btnToggleSplit').click(); } },
     { title: 'Compare Diff', category: 'View', action: function() { toggleCompareDiff(); } },
+    { title: 'Export Unified Diff (.diff)', category: 'View', action: function() { exportDiffFile(); } },
+    { title: 'Load Starter Example Files', category: 'File', action: function() { loadStarterExamples(); } },
     { title: 'Find in All Tabs', category: 'Search', action: function() { openFindDialog(false); document.getElementById('frFindAllTabs').click(); } },
     { title: 'Toggle Bookmark', category: 'Bookmarks', shortcut: 'Ctrl+F2', action: function() { toggleBookmark(editor.getCursor().line); } },
     { title: 'Delete Bookmarked Lines', category: 'Bookmarks', action: function() { deleteBookmarkedLines(); } },
