@@ -630,6 +630,51 @@
     font-size: 12px;
     color: var(--accent);
   }
+  .CodeMirror-bookmarks {
+    width: 14px;
+  }
+  .cm-bookmark-marker {
+    color: var(--accent);
+    font-size: 11px;
+    text-align: center;
+    cursor: pointer;
+    line-height: 1.55;
+    user-select: none;
+  }
+  .diff-line-added { background: rgba(16, 185, 129, 0.16) !important; }
+  .diff-line-removed { background: rgba(239, 68, 68, 0.16) !important; }
+  .diff-line-modified { background: rgba(245, 158, 11, 0.16) !important; }
+  .cm-ws-space {
+    background-image: radial-gradient(circle, var(--text-muted) 0.9px, transparent 1.1px);
+    background-size: 1ch 100%;
+    background-repeat: repeat-x;
+    background-position: left center;
+    opacity: 0.85;
+  }
+  .cm-ws-tab {
+    position: relative;
+  }
+  .cm-ws-tab::after {
+    content: "→";
+    position: absolute;
+    left: 1px;
+    top: 0;
+    color: var(--text-muted);
+    opacity: 0.7;
+    font-size: 11px;
+  }
+  .editor-container .column-ruler {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(48px + 80ch);
+    border-left: 1px dashed var(--border-strong);
+    pointer-events: none;
+    z-index: 5;
+    display: none;
+    font-family: var(--font-mono);
+    font-size: 13.5px;
+  }
 
   /* Highlight tokens */
   [data-theme="dark"] .cm-keyword { color: #f472b6; font-weight: 600; }
@@ -891,6 +936,93 @@
   }
 
   /* ==========================================================================
+     Search Results Drawer (Multi-Tab Find All)
+     ========================================================================== */
+  .search-results-drawer {
+    flex-shrink: 0;
+    height: 160px;
+    max-height: 180px;
+    background: var(--bg-panel);
+    border-top: 1px solid var(--border-strong);
+    display: flex;
+    flex-direction: column;
+    z-index: 25;
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.12);
+  }
+  .search-results-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 14px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    user-select: none;
+  }
+  .search-results-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .search-results-badge {
+    font-size: 10px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: var(--bg-surface-active);
+    color: var(--text-muted);
+    font-weight: 700;
+  }
+  .search-results-badge.has-results {
+    background: rgba(99, 102, 241, 0.15);
+    color: var(--accent);
+  }
+  .search-results-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 14px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+  }
+  .search-results-empty {
+    color: var(--text-muted);
+    font-style: italic;
+    padding: 14px 0;
+    font-size: 12px;
+  }
+  .search-results-group {
+    font-weight: 600;
+    color: var(--text-primary);
+    padding: 4px 0 2px;
+    font-size: 11.5px;
+  }
+  .search-result-row {
+    padding: 2px 8px 2px 18px;
+    border-radius: 3px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .search-result-row:hover {
+    background: var(--bg-surface-hover);
+    color: var(--text-primary);
+  }
+  .search-result-line {
+    color: var(--accent);
+    margin-right: 6px;
+    font-weight: 600;
+  }
+  .search-result-hit {
+    background: rgba(245, 158, 11, 0.25);
+    border-radius: 2px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  /* ==========================================================================
      Status Bar
      ========================================================================== */
   .statusbar {
@@ -1086,6 +1218,25 @@
   </div>
 
   <div class="ribbon-group">
+    <div class="dropdown">
+      <button class="ribbon-btn" id="btnBookmarksMenu">🔖 Bookmarks ▾</button>
+      <div class="dropdown-menu" id="bookmarksDropdown">
+        <div class="dropdown-item" data-action="toggle-bookmark"><span>Toggle Bookmark (Ctrl+F2)</span></div>
+        <div class="dropdown-item" data-action="next-bookmark"><span>Next Bookmark (F2)</span></div>
+        <div class="dropdown-item" data-action="prev-bookmark"><span>Previous Bookmark (Shift+F2)</span></div>
+        <div class="dropdown-divider"></div>
+        <div class="dropdown-item" data-action="bookmark-matches"><span>Bookmark All Search Matches</span></div>
+        <div class="dropdown-item" data-action="copy-bookmarked"><span>Copy Bookmarked Lines</span></div>
+        <div class="dropdown-item" data-action="delete-bookmarked"><span>Delete Bookmarked Lines</span></div>
+        <div class="dropdown-divider"></div>
+        <div class="dropdown-item" data-action="clear-bookmarks"><span>Clear All Bookmarks</span></div>
+      </div>
+    </div>
+    <button class="ribbon-btn" id="btnShowSymbols" title="Show Whitespace / EOL Symbols">¶ Symbols</button>
+    <button class="ribbon-btn" id="btnColumnRuler" title="Toggle 80/120 Column Ruler">📏 Ruler 80/120</button>
+  </div>
+
+  <div class="ribbon-group">
     <button class="ribbon-btn" id="btnToggleWrap" title="Toggle Word Wrap (Alt+Z)">↩ Wrap</button>
     <button class="ribbon-btn" id="btnGotoLine" title="Go to Line (Ctrl+G)"># Go To Line</button>
     <button class="ribbon-btn" id="btnComment" title="Toggle Comment (Ctrl+/)">💬 Comment</button>
@@ -1164,6 +1315,8 @@
           <input type="text" class="fr-input" id="frReplaceInput" placeholder="Replace with...">
           <button class="btn btn-sm" id="frReplace">Replace</button>
           <button class="btn btn-sm" id="frReplaceAll">All</button>
+          <button class="btn btn-sm" id="frFindAllTabs" title="Search across all open documents">Find in All Tabs</button>
+          <button class="btn btn-sm" id="frBookmarkMatches" title="Bookmark every line matching the current query">Mark Lines</button>
         </div>
         <div class="fr-row" style="justify-content: space-between; font-size:11px;">
           <span id="frMatchesCount" class="fr-count">No matches</span>
@@ -1179,11 +1332,19 @@
           <span>📑 Split Reference:</span>
           <select class="status-select" id="splitTabSelect"></select>
         </div>
-        <button class="btn btn-sm btn-icon" id="btnCloseSplit" title="Close Split View">✕</button>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <button class="btn btn-sm" id="btnCompareDiff" title="Toggle Live Diff Comparison">⚖️ Compare Diff</button>
+          <label class="ribbon-btn" style="display:flex; align-items:center; gap:4px; cursor:pointer; margin:0;">
+            <input type="checkbox" id="btnSyncSplitScroll" style="accent-color:var(--accent);">
+            🔗 Sync Scroll
+          </label>
+          <button class="btn btn-sm btn-icon" id="btnCloseSplit" title="Close Split View">✕</button>
+        </div>
       </div>
       <div id="secondaryEditorMount" style="flex:1; width:100%; height:100%; overflow:hidden;"></div>
     </section>
   </div>
+  <div class="column-ruler" id="columnRuler"></div>
 </div>
 
 <!-- Go To Line Modal -->
@@ -1221,6 +1382,26 @@
   </div>
 </div>
 
+<!-- Multi-Tab Search Results Drawer -->
+<div class="search-results-drawer" id="searchResultsDrawer" style="display:none;">
+  <div class="search-results-header">
+    <div class="search-results-title">
+      <span>🔍 Search Results</span>
+      <span class="search-results-badge" id="searchResultsBadge">0</span>
+      <span style="color:var(--text-muted); font-weight:400; font-size:11px;">hits in</span>
+      <span class="search-results-badge" id="searchFilesBadge">0</span>
+      <span style="color:var(--text-muted); font-weight:400; font-size:11px;">files</span>
+    </div>
+    <div class="search-results-actions" style="display:flex; align-items:center; gap:8px;">
+      <button class="btn btn-sm" id="btnClearSearchResults" title="Clear all search results">Clear</button>
+      <button class="btn btn-sm btn-icon" id="btnCloseSearchResults" title="Close Search Results">✕</button>
+    </div>
+  </div>
+  <div class="search-results-body" id="searchResultsList">
+    <div class="search-results-empty" id="searchResultsEmpty">No search results. Use "Find in All Tabs" to search across all open documents.</div>
+  </div>
+</div>
+
 <!-- Status Bar -->
 <footer class="statusbar">
   <div class="statusbar-left">
@@ -1231,6 +1412,10 @@
     <div class="status-item clickable status-error-toggle" id="statusErrorIndicator" title="Click to open/close Error Log">
       <span class="error-dot clean" id="statusErrorDot"></span>
       <span id="statusErrorText">0 Errors</span>
+    </div>
+    <div class="status-item clickable" id="statusSearchIndicator" title="Click to open/close Search Results">
+      <span style="color:var(--accent);">🔍</span>
+      <span id="statusSearchText">Search: 0</span>
     </div>
     <div class="status-item clickable" id="statusPos" title="Click to Go to Line (Ctrl+G)">Ln 1, Col 1</div>
     <div class="status-item" id="statusSelection">Sel: 0 | 0 chars</div>
@@ -1281,6 +1466,15 @@
   // Macro Recorder State
   let isRecordingMacro = false;
   let macroActions = [];
+
+  // Stage 2 Feature State
+  let showSymbolsActive = false;
+  let rulerMode = 0;
+  let compareDiffActive = false;
+  let syncSplitScrollActive = false;
+  let isSyncingSplitScroll = false;
+  let diffUpdateTimer = null;
+  let searchResults = [];
 
   // Mode Map based on file extension
   const EXT_MAP = {
@@ -1495,7 +1689,7 @@
       tabSize: 2,
       indentWithTabs: false,
       foldGutter: true,
-      gutters: ['CodeMirror-linenumbers', 'CodeMirror-foldgutter'],
+      gutters: ['CodeMirror-linenumbers', 'CodeMirror-bookmarks', 'CodeMirror-foldgutter'],
       extraKeys: {
         'Ctrl-S': function() { saveActiveFile(); },
         'Ctrl-O': function() { document.getElementById('fileInput').click(); },
@@ -1508,7 +1702,10 @@
         'Ctrl-/': function(cm) { cm.toggleComment(); },
         'Ctrl-U': function() { runTextFxAction('to-upper'); },
         'Ctrl-L': function() { runTextFxAction('to-lower'); },
-        'Ctrl-Shift-P': function() { playMacro(); }
+        'Ctrl-Shift-P': function() { playMacro(); },
+        'Ctrl-F2': function() { toggleBookmark(editor.getCursor().line); },
+        'F2': function() { jumpToNextBookmark(false); },
+        'Shift-F2': function() { jumpToNextBookmark(true); }
       }
     });
 
@@ -1520,7 +1717,7 @@
       lineNumbers: true,
       readOnly: false,
       foldGutter: true,
-      gutters: ['CodeMirror-linenumbers', 'CodeMirror-foldgutter']
+      gutters: ['CodeMirror-linenumbers', 'CodeMirror-bookmarks', 'CodeMirror-foldgutter']
     });
 
     secondaryEditor.on('change', function() {
@@ -1558,8 +1755,21 @@
       scheduleSave();
     });
 
+    // Stage 2: live diff refresh (debounced 250ms) while compare mode is active
+    editor.on('change', function() { scheduleDiffUpdate(); });
+    secondaryEditor.on('change', function() { scheduleDiffUpdate(); });
+
+    bindSplitScrollSync();
+
     editor.on('cursorActivity', function() {
       updateCursorPosition();
+    });
+
+    // Stage 2: gutter click toggles bookmarks
+    editor.on('gutterClick', function(cm, line, gutter) {
+      if (gutter === 'CodeMirror-linenumbers' || gutter === 'CodeMirror-bookmarks') {
+        toggleBookmark(line);
+      }
     });
 
     // Drag and Drop File Support
@@ -1587,7 +1797,8 @@
       dirty: false,
       cursor: { line: 0, ch: 0 },
       scroll: { left: 0, top: 0 },
-      history: null
+      history: null,
+      bookmarks: []
     };
   }
 
@@ -1611,6 +1822,15 @@
       curTab.cursor = editor.getCursor();
       curTab.scroll = editor.getScrollInfo();
       curTab.history = editor.getHistory();
+      const currentBookmarks = [];
+      const totalLines = editor.lineCount();
+      for (let i = 0; i < totalLines; i++) {
+        const info = editor.lineInfo(i);
+        if (info && info.gutterMarkers && info.gutterMarkers['CodeMirror-bookmarks']) {
+          currentBookmarks.push(i);
+        }
+      }
+      curTab.bookmarks = currentBookmarks;
     }
 
     activeTabId = id;
@@ -1634,6 +1854,22 @@
     }
     if (tab.scroll) {
       editor.scrollTo(tab.scroll.left, tab.scroll.top);
+    }
+
+    if (Array.isArray(tab.bookmarks)) {
+      const totalLines = editor.lineCount();
+      for (let i = 0; i < totalLines; i++) {
+        editor.setGutterMarker(i, 'CodeMirror-bookmarks', null);
+      }
+      tab.bookmarks.forEach(function(line) {
+        if (line >= 0 && line < totalLines) {
+          editor.setGutterMarker(line, 'CodeMirror-bookmarks', makeBookmarkMarker());
+        }
+      });
+    }
+
+    if (compareDiffActive) {
+      runDiffComparison();
     }
 
     editor.focus();
@@ -2256,6 +2492,434 @@
   }
 
   // --------------------------------------------------------------------------
+  // Stage 2 Feature 2.1: Gutter Bookmarks & Line Operations
+  // --------------------------------------------------------------------------
+  function makeBookmarkMarker() {
+    const marker = document.createElement('span');
+    marker.className = 'cm-bookmark-marker';
+    marker.textContent = '●';
+    return marker;
+  }
+
+  function toggleBookmark(line) {
+    if (!editor || typeof line !== 'number') return;
+    const info = editor.lineInfo(line);
+    if (!info) return;
+    if (info.gutterMarkers && info.gutterMarkers['CodeMirror-bookmarks']) {
+      editor.setGutterMarker(line, 'CodeMirror-bookmarks', null);
+    } else {
+      editor.setGutterMarker(line, 'CodeMirror-bookmarks', makeBookmarkMarker());
+    }
+    const tab = getActiveTab();
+    if (tab) tab.bookmarks = collectActiveBookmarks();
+    scheduleSave();
+  }
+
+  function collectActiveBookmarks() {
+    const result = [];
+    if (!editor) return result;
+    const totalLines = editor.lineCount();
+    for (let i = 0; i < totalLines; i++) {
+      const info = editor.lineInfo(i);
+      if (info && info.gutterMarkers && info.gutterMarkers['CodeMirror-bookmarks']) {
+        result.push(i);
+      }
+    }
+    return result;
+  }
+
+  function jumpToNextBookmark(reverse) {
+    if (!editor) return;
+    const bookmarks = collectActiveBookmarks();
+    if (!bookmarks.length) {
+      showToast('No bookmarks in this document');
+      return;
+    }
+    const curLine = editor.getCursor().line;
+    let target = null;
+    if (reverse) {
+      for (let i = bookmarks.length - 1; i >= 0; i--) {
+        if (bookmarks[i] < curLine) { target = bookmarks[i]; break; }
+      }
+      if (target === null) target = bookmarks[bookmarks.length - 1];
+    } else {
+      for (let i = 0; i < bookmarks.length; i++) {
+        if (bookmarks[i] > curLine) { target = bookmarks[i]; break; }
+      }
+      if (target === null) target = bookmarks[0];
+    }
+    editor.setCursor({ line: target, ch: 0 });
+    editor.scrollIntoView({ line: target, ch: 0 }, 80);
+    editor.focus();
+  }
+
+  function bookmarkAllSearchMatches() {
+    if (!editor) return;
+    const query = getSearchQuery();
+    if (!query) {
+      showToast('Enter a search query first (Ctrl+F)');
+      return;
+    }
+    const searchTarget = query.query ? query.query : query;
+    const lines = editor.getValue().split('\n');
+    let marked = 0;
+    lines.forEach(function(lineText, idx) {
+      let found = false;
+      if (query instanceof RegExp) {
+        const re = new RegExp(query.source, query.flags.includes('g') ? query.flags : query.flags + 'g');
+        found = re.test(lineText);
+      } else {
+        found = query.caseFold
+          ? lineText.toLowerCase().includes(searchTarget.toLowerCase())
+          : lineText.includes(searchTarget);
+      }
+      if (found) {
+        const info = editor.lineInfo(idx);
+        if (!info.gutterMarkers || !info.gutterMarkers['CodeMirror-bookmarks']) {
+          editor.setGutterMarker(idx, 'CodeMirror-bookmarks', makeBookmarkMarker());
+          marked++;
+        }
+      }
+    });
+    const tab = getActiveTab();
+    if (tab) tab.bookmarks = collectActiveBookmarks();
+    scheduleSave();
+    showToast('Bookmarked ' + marked + ' matching line' + (marked === 1 ? '' : 's'));
+  }
+
+  function copyBookmarkedLines() {
+    if (!editor) return;
+    const bookmarks = collectActiveBookmarks();
+    if (!bookmarks.length) {
+      showToast('No bookmarked lines to copy');
+      return;
+    }
+    const text = bookmarks.map(function(l) { return editor.getLine(l); }).join('\n');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function() {
+        showToast('Copied ' + bookmarks.length + ' bookmarked line' + (bookmarks.length === 1 ? '' : 's'));
+      });
+    } else {
+      showToast('Clipboard unavailable');
+    }
+  }
+
+  function deleteBookmarkedLines() {
+    if (!editor) return;
+    const bookmarks = collectActiveBookmarks();
+    if (!bookmarks.length) {
+      showToast('No bookmarked lines to delete');
+      return;
+    }
+    editor.operation(function() {
+      for (let i = bookmarks.length - 1; i >= 0; i--) {
+        const line = bookmarks[i];
+        editor.replaceRange('', { line: line, ch: 0 }, { line: line + 1, ch: 0 });
+      }
+    });
+    const tab = getActiveTab();
+    if (tab) tab.bookmarks = [];
+    scheduleSave();
+    showToast('Deleted ' + bookmarks.length + ' bookmarked line' + (bookmarks.length === 1 ? '' : 's') + ' (Ctrl+Z restores all)');
+  }
+
+  function clearAllBookmarks() {
+    if (!editor) return;
+    const totalLines = editor.lineCount();
+    for (let i = 0; i < totalLines; i++) {
+      editor.setGutterMarker(i, 'CodeMirror-bookmarks', null);
+    }
+    const tab = getActiveTab();
+    if (tab) tab.bookmarks = [];
+    scheduleSave();
+    showToast('Cleared all bookmarks');
+  }
+
+  // --------------------------------------------------------------------------
+  // Stage 2 Feature 2.2: Find in All Open Tabs & Search Results Dock
+  // --------------------------------------------------------------------------
+  function escapeRegExp(str) {
+    return str.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+  }
+
+  function lineMatchesQuery(lineText, query) {
+    if (query instanceof RegExp) {
+      const re = new RegExp(query.source, query.flags.includes('g') ? query.flags : query.flags + 'g');
+      return re.test(lineText);
+    }
+    const target = query.query !== undefined ? query.query : query;
+    return query.caseFold
+      ? lineText.toLowerCase().includes(String(target).toLowerCase())
+      : lineText.includes(target);
+  }
+
+  function findInAllOpenTabs() {
+    const activeTab = getActiveTab();
+    if (activeTab && editor) activeTab.content = editor.getValue();
+
+    const query = getSearchQuery();
+    if (!query) {
+      showToast('Enter a search query first');
+      return;
+    }
+
+    const results = [];
+    tabs.forEach(function(tab) {
+      const lines = (tab.content || '').split('\n');
+      const matches = [];
+      lines.forEach(function(lineText, lineIdx) {
+        let matchCol = -1;
+        if (query instanceof RegExp) {
+          const re = new RegExp(query.source, query.flags.replace('g', ''));
+          const m = lineText.match(re);
+          if (m) matchCol = m.index;
+        } else {
+          const target = query.query !== undefined ? query.query : query;
+          matchCol = query.caseFold
+            ? lineText.toLowerCase().indexOf(String(target).toLowerCase())
+            : lineText.indexOf(target);
+        }
+        if (matchCol !== -1) {
+          matches.push({ line: lineIdx, ch: matchCol, text: lineText });
+        }
+      });
+      if (matches.length) {
+        results.push({ tabId: tab.id, fileName: tab.name, matches: matches });
+      }
+    });
+
+    searchResults = results;
+    renderSearchResults(results);
+    toggleSearchResultsDrawer(true);
+
+    const totalHits = results.reduce(function(acc, r) { return acc + r.matches.length; }, 0);
+    showToast('Found ' + totalHits + ' hit' + (totalHits === 1 ? '' : 's') + ' across ' + results.length + ' file' + (results.length === 1 ? '' : 's'));
+  }
+
+  function renderSearchResults(results) {
+    const listEl = document.getElementById('searchResultsList');
+    const emptyEl = document.getElementById('searchResultsEmpty');
+    const hitsBadge = document.getElementById('searchResultsBadge');
+    const filesBadge = document.getElementById('searchFilesBadge');
+    const statusText = document.getElementById('statusSearchText');
+
+    const totalHits = results.reduce(function(acc, r) { return acc + r.matches.length; }, 0);
+    if (hitsBadge) {
+      hitsBadge.textContent = totalHits;
+      hitsBadge.classList.toggle('has-results', totalHits > 0);
+    }
+    if (filesBadge) {
+      filesBadge.textContent = results.length;
+      filesBadge.classList.toggle('has-results', results.length > 0);
+    }
+    if (statusText) statusText.textContent = 'Search: ' + totalHits;
+
+    if (!results.length) {
+      if (emptyEl) emptyEl.style.display = 'block';
+      if (listEl) listEl.querySelectorAll('.search-results-group').forEach(function(g) { g.remove(); });
+      return;
+    }
+    if (emptyEl) emptyEl.style.display = 'none';
+    if (!listEl) return;
+
+    listEl.querySelectorAll('.search-results-group').forEach(function(g) { g.remove(); });
+
+    const query = getSearchQuery();
+    let hitRe = null;
+    if (query instanceof RegExp) {
+      hitRe = new RegExp('(' + query.source + ')', query.flags.replace('g', ''));
+    } else if (query) {
+      const target = query.query !== undefined ? query.query : query;
+      hitRe = new RegExp('(' + escapeRegExp(String(target)) + ')', query.caseFold ? 'i' : '');
+    }
+
+    results.forEach(function(group) {
+      const groupEl = document.createElement('div');
+      groupEl.className = 'search-results-group';
+      groupEl.textContent = '📄 ' + group.fileName + ' (' + group.matches.length + ' hits)';
+      listEl.appendChild(groupEl);
+
+      group.matches.forEach(function(match) {
+        const row = document.createElement('div');
+        row.className = 'search-result-row';
+        const snippet = match.text.slice(0, 200);
+        let html = '<span class="search-result-line">Line ' + (match.line + 1) + ':</span> ';
+        if (hitRe) {
+          html += escapeHtml(snippet).replace(hitRe, '<span class="search-result-hit">$1</span>');
+        } else {
+          html += escapeHtml(snippet);
+        }
+        row.innerHTML = html;
+        row.title = group.fileName + ' line ' + (match.line + 1);
+        row.onclick = function() {
+          selectTab(group.tabId);
+          editor.setCursor({ line: match.line, ch: match.ch });
+          editor.scrollIntoView({ line: match.line, ch: match.ch }, 80);
+          editor.focus();
+        };
+        listEl.appendChild(row);
+      });
+    });
+  }
+
+  function toggleSearchResultsDrawer(force) {
+    const drawer = document.getElementById('searchResultsDrawer');
+    if (!drawer) return;
+    const isOpen = drawer.style.display !== 'none';
+    const shouldOpen = typeof force === 'boolean' ? force : !isOpen;
+    drawer.style.display = shouldOpen ? 'flex' : 'none';
+    if (editor) requestAnimationFrame(function() { editor.refresh(); });
+  }
+
+  function clearSearchResults() {
+    searchResults = [];
+    renderSearchResults([]);
+    showToast('Search results cleared');
+  }
+
+  // --------------------------------------------------------------------------
+  // Stage 2 Feature 2.3: Side-by-Side Live Diff & Sync Scrolling
+  // --------------------------------------------------------------------------
+  function clearDiffHighlights(cm) {
+    if (!cm) return;
+    const totalLines = cm.lineCount();
+    for (let i = 0; i < totalLines; i++) {
+      cm.removeLineClass(i, 'background', 'diff-line-added');
+      cm.removeLineClass(i, 'background', 'diff-line-removed');
+      cm.removeLineClass(i, 'background', 'diff-line-modified');
+    }
+  }
+
+  function runDiffComparison() {
+    if (!editor || !secondaryEditor) return;
+    clearDiffHighlights(editor);
+    clearDiffHighlights(secondaryEditor);
+    if (!compareDiffActive) return;
+
+    const primaryLines = editor.getValue().split('\n');
+    const secondaryLines = secondaryEditor.getValue().split('\n');
+    const maxLen = Math.max(primaryLines.length, secondaryLines.length);
+
+    for (let i = 0; i < maxLen; i++) {
+      const a = i < primaryLines.length ? primaryLines[i] : null;
+      const b = i < secondaryLines.length ? secondaryLines[i] : null;
+      if (a === null && b === null) continue;
+      let cls = null;
+      if (b === null) {
+        cls = 'diff-line-added';
+        if (i < editor.lineCount()) editor.addLineClass(i, 'background', cls);
+      } else if (a === null) {
+        cls = 'diff-line-removed';
+        if (i < secondaryEditor.lineCount()) secondaryEditor.addLineClass(i, 'background', cls);
+      } else if (a !== b) {
+        if (i < editor.lineCount()) editor.addLineClass(i, 'background', 'diff-line-modified');
+        if (i < secondaryEditor.lineCount()) secondaryEditor.addLineClass(i, 'background', 'diff-line-modified');
+      }
+    }
+  }
+
+  function scheduleDiffUpdate() {
+    if (!compareDiffActive) return;
+    clearTimeout(diffUpdateTimer);
+    diffUpdateTimer = setTimeout(runDiffComparison, 250);
+  }
+
+  function toggleCompareDiff() {
+    compareDiffActive = !compareDiffActive;
+    const btn = document.getElementById('btnCompareDiff');
+    if (btn) btn.classList.toggle('btn-primary', compareDiffActive);
+    if (compareDiffActive) {
+      runDiffComparison();
+      showToast('Compare Diff enabled');
+    } else {
+      clearDiffHighlights(editor);
+      clearDiffHighlights(secondaryEditor);
+      showToast('Compare Diff disabled');
+    }
+  }
+
+  function bindSplitScrollSync() {
+    editor.on('scroll', function() {
+      if (!syncSplitScrollActive || isSyncingSplitScroll || !secondaryEditor) return;
+      isSyncingSplitScroll = true;
+      const info = editor.getScrollInfo();
+      const secInfo = secondaryEditor.getScrollInfo();
+      const secMaxTop = Math.max(1, secInfo.height - secInfo.clientHeight);
+      const ratio = info.top / Math.max(1, info.height - info.clientHeight);
+      secondaryEditor.scrollTo(info.left, ratio * secMaxTop);
+      isSyncingSplitScroll = false;
+    });
+    secondaryEditor.on('scroll', function() {
+      if (!syncSplitScrollActive || isSyncingSplitScroll || !editor) return;
+      isSyncingSplitScroll = true;
+      const info = secondaryEditor.getScrollInfo();
+      const priInfo = editor.getScrollInfo();
+      const priMaxTop = Math.max(1, priInfo.height - priInfo.clientHeight);
+      const ratio = info.top / Math.max(1, info.height - info.clientHeight);
+      editor.scrollTo(info.left, ratio * priMaxTop);
+      isSyncingSplitScroll = false;
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // Stage 2 Feature 2.4: Show Whitespace Symbols & Column Ruler
+  // --------------------------------------------------------------------------
+  const whitespaceOverlay = {
+    token: function(stream) {
+      if (stream.peek() === ' ') {
+        stream.next();
+        return 'ws-space';
+      }
+      if (stream.peek() === '\t') {
+        stream.next();
+        return 'ws-tab';
+      }
+      while (stream.next() && stream.peek() !== ' ' && stream.peek() !== '\t') {}
+      return null;
+    }
+  };
+
+  function toggleShowSymbols(force) {
+    const shouldEnable = typeof force === 'boolean' ? force : !showSymbolsActive;
+    showSymbolsActive = shouldEnable;
+    const btn = document.getElementById('btnShowSymbols');
+    if (btn) btn.classList.toggle('active', showSymbolsActive);
+    if (showSymbolsActive) {
+      editor.addOverlay(whitespaceOverlay);
+    } else {
+      editor.removeOverlay(whitespaceOverlay);
+    }
+    scheduleSave();
+    if (typeof force !== 'boolean') {
+      showToast('Whitespace symbols ' + (showSymbolsActive ? 'enabled' : 'disabled'));
+    }
+  }
+
+  function applyColumnRuler() {
+    const ruler = document.getElementById('columnRuler');
+    if (!ruler) return;
+    if (rulerMode === 0) {
+      ruler.style.display = 'none';
+    } else {
+      ruler.style.display = 'block';
+      ruler.style.left = rulerMode === 1 ? 'calc(48px + 80ch)' : 'calc(48px + 120ch)';
+      ruler.dataset.cols = rulerMode === 1 ? '80' : '120';
+    }
+    const btn = document.getElementById('btnColumnRuler');
+    if (btn) {
+      btn.classList.toggle('active', rulerMode !== 0);
+      btn.textContent = rulerMode === 0 ? '📏 Ruler 80/120' : '📏 Ruler ' + (rulerMode === 1 ? '80' : '120');
+    }
+  }
+
+  function cycleColumnRuler() {
+    rulerMode = rulerMode === 0 ? 1 : (rulerMode === 1 ? 2 : 0);
+    applyColumnRuler();
+    scheduleSave();
+    showToast(rulerMode === 0 ? 'Column ruler off' : 'Column ruler at ' + (rulerMode === 1 ? '80' : '120') + ' columns');
+  }
+
+  // --------------------------------------------------------------------------
   // File System & Persistence
   // --------------------------------------------------------------------------
   let saveTimer = null;
@@ -2279,9 +2943,12 @@
             content: t.content,
             savedContent: t.savedContent,
             mode: t.mode,
-            dirty: t.dirty
+            dirty: t.dirty,
+            bookmarks: Array.isArray(t.bookmarks) ? t.bookmarks : []
           };
-        })
+        }),
+        showSymbolsActive: showSymbolsActive,
+        rulerMode: rulerMode
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch (e) {
@@ -2301,6 +2968,11 @@
           tabSize = parsed.tabSize || 2;
           lineEnding = parsed.lineEnding || 'CRLF';
           macroActions = Array.isArray(parsed.macroActions) ? parsed.macroActions : [];
+          showSymbolsActive = !!parsed.showSymbolsActive;
+          rulerMode = parsed.rulerMode === 1 || parsed.rulerMode === 2 ? parsed.rulerMode : 0;
+          tabs.forEach(function(t) {
+            if (!Array.isArray(t.bookmarks)) t.bookmarks = [];
+          });
           activeTabId = parsed.activeTabId || tabs[0].id;
           return;
         }
@@ -2488,7 +3160,13 @@ function calculateChecksum(payload) {
       }, 60);
     }
     document.getElementById('btnToggleSplit').onclick = toggleSplitView;
-    document.getElementById('btnCloseSplit').onclick = toggleSplitView;
+    document.getElementById('btnCloseSplit').onclick = function() {
+      if (compareDiffActive) toggleCompareDiff();
+      syncSplitScrollActive = false;
+      const syncChk = document.getElementById('btnSyncSplitScroll');
+      if (syncChk) syncChk.checked = false;
+      toggleSplitView();
+    };
     document.getElementById('splitTabSelect').onchange = function(e) {
       loadTabIntoSplitView(e.target.value);
     };
@@ -2651,6 +3329,47 @@ function calculateChecksum(payload) {
       showToast('Indentation set to ' + tabSize + ' spaces');
     };
 
+    // Bookmarks Dropdown
+    const btnBookmarks = document.getElementById('btnBookmarksMenu');
+    const bookmarksDropdown = document.getElementById('bookmarksDropdown');
+    btnBookmarks.onclick = function(e) {
+      e.stopPropagation();
+      bookmarksDropdown.classList.toggle('show');
+    };
+    window.addEventListener('click', function() {
+      bookmarksDropdown.classList.remove('show');
+    });
+    bookmarksDropdown.querySelectorAll('.dropdown-item').forEach(function(item) {
+      item.onclick = function() {
+        const action = item.dataset.action;
+        if (action === 'toggle-bookmark') toggleBookmark(editor.getCursor().line);
+        else if (action === 'next-bookmark') jumpToNextBookmark(false);
+        else if (action === 'prev-bookmark') jumpToNextBookmark(true);
+        else if (action === 'bookmark-matches') bookmarkAllSearchMatches();
+        else if (action === 'copy-bookmarked') copyBookmarkedLines();
+        else if (action === 'delete-bookmarked') deleteBookmarkedLines();
+        else if (action === 'clear-bookmarks') clearAllBookmarks();
+      };
+    });
+
+    // Symbols & Column Ruler
+    document.getElementById('btnShowSymbols').onclick = function() { toggleShowSymbols(); };
+    document.getElementById('btnColumnRuler').onclick = cycleColumnRuler;
+
+    // Split View: Diff & Sync Scroll
+    document.getElementById('btnCompareDiff').onclick = toggleCompareDiff;
+    document.getElementById('btnSyncSplitScroll').onchange = function(e) {
+      syncSplitScrollActive = e.target.checked;
+      showToast('Sync scroll ' + (syncSplitScrollActive ? 'enabled' : 'disabled'));
+    };
+
+    // Multi-Tab Search Results Drawer
+    document.getElementById('frFindAllTabs').onclick = findInAllOpenTabs;
+    document.getElementById('frBookmarkMatches').onclick = bookmarkAllSearchMatches;
+    document.getElementById('statusSearchIndicator').onclick = function() { toggleSearchResultsDrawer(); };
+    document.getElementById('btnClearSearchResults').onclick = clearSearchResults;
+    document.getElementById('btnCloseSearchResults').onclick = function() { toggleSearchResultsDrawer(false); };
+
     // Error Log Drawer bindings
     document.getElementById('statusErrorIndicator').onclick = function() { toggleErrorLog(); };
     document.getElementById('btnClearErrorLog').onclick = function() { clearErrorLog(); };
@@ -2706,6 +3425,12 @@ function calculateChecksum(payload) {
     editor.setOption('lineWrapping', true);
     document.getElementById('btnToggleWrap').classList.add('active');
   }
+
+  applyColumnRuler();
+  if (showSymbolsActive) {
+    toggleShowSymbols(true);
+  }
+  renderSearchResults([]);
 
   selectTab(activeTabId || tabs[0].id);
 
