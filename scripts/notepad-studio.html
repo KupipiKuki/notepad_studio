@@ -1,0 +1,2687 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Notepad++ Studio IDE</title>
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!-- CodeMirror 5 Core & Addons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/dialog/dialog.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/fold/foldgutter.min.css">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/searchcursor.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/search.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/dialog/dialog.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/keymap/sublime.min.js"></script>
+
+<!-- Folding Addons -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/fold/foldcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/fold/foldgutter.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/fold/brace-fold.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/fold/xml-fold.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/fold/indent-fold.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/fold/comment-fold.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/comment/comment.min.js"></script>
+
+<!-- CodeMirror Language Modes -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/markdown/markdown.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/yaml/yaml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/shell/shell.min.js"></script>
+
+<style>
+  :root {
+    --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+    /* Light Theme Palette */
+    --bg-page: #f8fafc;
+    --bg-panel: #ffffff;
+    --bg-surface: #f1f5f9;
+    --bg-surface-hover: #e2e8f0;
+    --bg-surface-active: #cbd5e1;
+    --border: #e2e8f0;
+    --border-strong: #cbd5e1;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+    --accent: #4f46e5;
+    --accent-hover: #4338ca;
+    --accent-light: #e0e7ff;
+    --accent-gradient: linear-gradient(135deg, #4f46e5, #06b6d4);
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.15);
+    --editor-bg: #ffffff;
+    --gutter-bg: #f8fafc;
+    --active-line: rgba(79, 70, 229, 0.05);
+    --selection-bg: rgba(79, 70, 229, 0.2);
+  }
+
+  [data-theme="dark"] {
+    /* Dark Theme Palette */
+    --bg-page: #0b0f17;
+    --bg-panel: #111827;
+    --bg-surface: #1e293b;
+    --bg-surface-hover: #334155;
+    --bg-surface-active: #475569;
+    --border: #1e293b;
+    --border-strong: #334155;
+    --text-primary: #f8fafc;
+    --text-secondary: #cbd5e1;
+    --text-muted: #94a3b8;
+    --accent: #6366f1;
+    --accent-hover: #4f46e5;
+    --accent-light: #1e1b4b;
+    --accent-gradient: linear-gradient(135deg, #6366f1, #06b6d4);
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #f87171;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.6);
+    --editor-bg: #111827;
+    --gutter-bg: #0d131f;
+    --active-line: rgba(99, 102, 241, 0.08);
+    --selection-bg: rgba(99, 102, 241, 0.28);
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: var(--font-ui);
+    background: var(--bg-page);
+    color: var(--text-primary);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Utility Icons */
+  .icon {
+    width: 14px;
+    height: 14px;
+    display: inline-block;
+    vertical-align: middle;
+    fill: currentColor;
+    flex-shrink: 0;
+  }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    user-select: none;
+    line-height: 1.2;
+  }
+  .btn:hover {
+    background: var(--bg-surface-hover);
+    border-color: var(--border-strong);
+  }
+  .btn:active {
+    background: var(--bg-surface-active);
+    transform: translateY(1px);
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #ffffff;
+    border-color: var(--accent);
+  }
+  .btn-primary:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+  }
+  .btn-gradient {
+    background: var(--accent-gradient);
+    color: #ffffff;
+    border: none;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
+  }
+  .btn-gradient:hover {
+    filter: brightness(1.08);
+  }
+  .btn-sm {
+    padding: 3px 7px;
+    font-size: 11px;
+    border-radius: 4px;
+  }
+  .btn-icon {
+    padding: 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .btn-danger {
+    color: var(--danger);
+  }
+  .btn-danger:hover {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: var(--danger);
+  }
+
+  /* ==========================================================================
+     Header & Ribbon Toolbar
+     ========================================================================== */
+  .app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 14px;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+    user-select: none;
+    z-index: 30;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: -0.3px;
+  }
+  .brand-badge {
+    background: var(--accent-gradient);
+    color: #ffffff;
+    padding: 3px 7px;
+    border-radius: 6px;
+    font-weight: 800;
+    font-size: 12px;
+    box-shadow: 0 2px 6px rgba(99, 102, 241, 0.4);
+  }
+  .brand-tag {
+    font-size: 11px;
+    padding: 2px 7px;
+    background: var(--bg-surface);
+    color: var(--accent);
+    border-radius: 999px;
+    font-weight: 600;
+    border: 1px solid var(--border);
+  }
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* Notepad++ Classic Ribbon / TextFX Bar */
+  .npp-ribbon {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    scrollbar-width: none;
+    user-select: none;
+    z-index: 20;
+  }
+  .npp-ribbon::-webkit-scrollbar { display: none; }
+  .ribbon-group {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 0 4px;
+    border-right: 1px solid var(--border);
+  }
+  .ribbon-group:last-child {
+    border-right: none;
+  }
+  .ribbon-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 7px;
+    font-size: 11.5px;
+    border-radius: 4px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.12s;
+    white-space: nowrap;
+  }
+  .ribbon-btn:hover {
+    background: var(--bg-surface-hover);
+    color: var(--text-primary);
+    border-color: var(--border);
+  }
+  .ribbon-btn.active {
+    background: var(--accent-light);
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+  .ribbon-btn.recording {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--danger);
+    border-color: var(--danger);
+    animation: pulseRec 1s infinite alternate;
+  }
+  @keyframes pulseRec {
+    from { opacity: 0.75; }
+    to { opacity: 1; }
+  }
+
+  /* Dropdown Menus */
+  .dropdown {
+    position: relative;
+    display: inline-block;
+  }
+  .dropdown-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 4px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    box-shadow: var(--shadow-lg);
+    min-width: 190px;
+    z-index: 100;
+    padding: 4px;
+  }
+  .dropdown-menu.right {
+    left: auto;
+    right: 0;
+  }
+  .dropdown-menu.show {
+    display: block;
+  }
+  .dropdown-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    font-size: 11.5px;
+    color: var(--text-primary);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .dropdown-item:hover {
+    background: var(--bg-surface-hover);
+    color: var(--accent);
+  }
+  .dropdown-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+  }
+  .dropdown-shortcut {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+  }
+
+  /* ==========================================================================
+     Tab Bar
+     ========================================================================== */
+  .tabbar-container {
+    display: flex;
+    align-items: center;
+    background: var(--bg-page);
+    border-bottom: 1px solid var(--border);
+    padding: 0 6px;
+    gap: 3px;
+    user-select: none;
+    overflow-x: auto;
+    scrollbar-width: none;
+    min-height: 36px;
+  }
+  .tabbar-container::-webkit-scrollbar { display: none; }
+  .tabs-list {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .tab-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 11px;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 6px 6px 0 0;
+    background: var(--bg-surface);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-bottom: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    position: relative;
+    top: 1px;
+  }
+  .tab-item:hover {
+    color: var(--text-primary);
+    background: var(--bg-surface-hover);
+  }
+  .tab-item.active {
+    background: var(--editor-bg);
+    color: var(--text-primary);
+    font-weight: 600;
+    border-color: var(--border);
+    box-shadow: 0 -2px 0 var(--accent);
+  }
+  .tab-icon {
+    font-size: 13px;
+  }
+  .tab-title {
+    outline: none;
+    cursor: pointer;
+  }
+  .tab-dirty-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    display: none;
+  }
+  .tab-item.dirty .tab-dirty-dot {
+    display: inline-block;
+  }
+  .tab-close {
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    opacity: 0.55;
+    transition: all 0.15s;
+    margin-left: 2px;
+  }
+  .tab-close:hover {
+    opacity: 1;
+    background: var(--danger);
+    color: #ffffff;
+  }
+  .btn-new-tab {
+    padding: 3px 8px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 16px;
+    border-radius: 4px;
+    transition: all 0.15s;
+  }
+  .btn-new-tab:hover {
+    background: var(--bg-surface-hover);
+    color: var(--text-primary);
+  }
+
+  /* ==========================================================================
+     Workspace & Sidebar Layout
+     ========================================================================== */
+  .workspace {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Sidebar Explorer */
+  .sidebar-explorer {
+    width: 250px;
+    background: var(--bg-panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    transition: width 0.2s ease, margin-left 0.2s ease;
+    overflow: hidden;
+    z-index: 10;
+  }
+  .sidebar-explorer.collapsed {
+    width: 0;
+    margin-left: -1px;
+    border-right: none;
+  }
+  .sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    background: var(--bg-surface);
+  }
+  .sidebar-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .sidebar-section-title {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin: 4px 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .open-files-list, .outline-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .file-tree-item, .outline-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 8px;
+    font-size: 12px;
+    border-radius: 5px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.12s;
+    user-select: none;
+  }
+  .file-tree-item:hover, .outline-item:hover {
+    background: var(--bg-surface-hover);
+    color: var(--text-primary);
+  }
+  .file-tree-item.active {
+    background: var(--accent-light);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .outline-item {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding-left: 12px;
+  }
+  .outline-tag {
+    font-size: 9.5px;
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: var(--bg-surface-active);
+    color: var(--text-muted);
+  }
+
+  /* Main & Split Editor Panes */
+  .editor-workspace-split {
+    flex: 1;
+    display: flex;
+    min-width: 0;
+    height: 100%;
+    position: relative;
+    background: var(--editor-bg);
+  }
+  .editor-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    height: 100%;
+    position: relative;
+    background: var(--editor-bg);
+  }
+  .secondary-editor-pane {
+    flex: 1;
+    display: none;
+    flex-direction: column;
+    min-width: 0;
+    height: 100%;
+    border-left: 2px solid var(--border-strong);
+    background: var(--editor-bg);
+  }
+  .secondary-editor-pane.open {
+    display: flex;
+  }
+  .secondary-pane-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 10px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    font-size: 11.5px;
+    color: var(--text-secondary);
+  }
+  .CodeMirror {
+    flex: 1;
+    height: 100%;
+    font-family: var(--font-mono);
+    font-size: 13.5px;
+    line-height: 1.55;
+    background: transparent;
+    color: var(--text-primary);
+  }
+  .CodeMirror-gutters {
+    background: var(--gutter-bg);
+    border-right: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .CodeMirror-linenumber {
+    color: var(--text-muted);
+    padding: 0 8px 0 4px;
+    font-size: 12px;
+  }
+  .CodeMirror-cursor {
+    border-left: 2px solid var(--accent);
+  }
+  .CodeMirror-activeline-background {
+    background: var(--active-line);
+  }
+  .CodeMirror-selected {
+    background: var(--selection-bg) !important;
+  }
+  .CodeMirror-foldgutter {
+    width: 14px;
+  }
+  .CodeMirror-foldgutter-open:after {
+    content: "▾";
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .CodeMirror-foldgutter-folded:after {
+    content: "▸";
+    font-size: 12px;
+    color: var(--accent);
+  }
+
+  /* Highlight tokens */
+  [data-theme="dark"] .cm-keyword { color: #f472b6; font-weight: 600; }
+  [data-theme="dark"] .cm-atom { color: #a78bfa; }
+  [data-theme="dark"] .cm-number { color: #f59e0b; }
+  [data-theme="dark"] .cm-def { color: #38bdf8; font-weight: 600; }
+  [data-theme="dark"] .cm-variable { color: #f8fafc; }
+  [data-theme="dark"] .cm-variable-2 { color: #cbd5e1; }
+  [data-theme="dark"] .cm-property { color: #67e8f9; }
+  [data-theme="dark"] .cm-operator { color: #f43f5e; }
+  [data-theme="dark"] .cm-comment { color: #64748b; font-style: italic; }
+  [data-theme="dark"] .cm-string { color: #34d399; }
+  [data-theme="dark"] .cm-string-2 { color: #10b981; }
+  [data-theme="dark"] .cm-meta { color: #fbbf24; }
+  [data-theme="dark"] .cm-tag { color: #f87171; }
+  [data-theme="dark"] .cm-attribute { color: #38bdf8; }
+
+  [data-theme="light"] .cm-keyword { color: #9333ea; font-weight: 600; }
+  [data-theme="light"] .cm-atom { color: #7c3aed; }
+  [data-theme="light"] .cm-number { color: #d97706; }
+  [data-theme="light"] .cm-def { color: #0284c7; font-weight: 600; }
+  [data-theme="light"] .cm-variable { color: #0f172a; }
+  [data-theme="light"] .cm-variable-2 { color: #334155; }
+  [data-theme="light"] .cm-property { color: #0891b2; }
+  [data-theme="light"] .cm-operator { color: #e11d48; }
+  [data-theme="light"] .cm-comment { color: #94a3b8; font-style: italic; }
+  [data-theme="light"] .cm-string { color: #059669; }
+  [data-theme="light"] .cm-string-2 { color: #047857; }
+  [data-theme="light"] .cm-meta { color: #b45309; }
+  [data-theme="light"] .cm-tag { color: #dc2626; }
+  [data-theme="light"] .cm-attribute { color: #0284c7; }
+
+  /* ==========================================================================
+     Advanced Floating Find & Replace Modal
+     ========================================================================== */
+  .find-replace-panel {
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    width: 410px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    box-shadow: var(--shadow-xl);
+    padding: 10px 14px;
+    z-index: 50;
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 12px;
+  }
+  .find-replace-panel.show {
+    display: flex;
+  }
+  .fr-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .fr-input-wrap {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .fr-input {
+    width: 100%;
+    padding: 5px 90px 5px 8px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text-primary);
+    outline: none;
+  }
+  .fr-input:focus {
+    border-color: var(--accent);
+  }
+  .fr-flags {
+    position: absolute;
+    right: 4px;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+  .fr-flag-btn {
+    padding: 2px 5px;
+    font-size: 10.5px;
+    font-weight: 700;
+    border-radius: 3px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+  .fr-flag-btn.active {
+    background: var(--accent);
+    color: #ffffff;
+  }
+  .fr-count {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    min-width: 70px;
+    text-align: right;
+  }
+
+  /* Go to Line Modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .modal-overlay.show {
+    display: flex;
+  }
+  .modal-card {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    width: 320px;
+    box-shadow: var(--shadow-xl);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* ==========================================================================
+     Error Log Drawer (Locked 140px Height, Clearable, Suite Parity)
+     ========================================================================== */
+  .error-log-drawer {
+    flex-shrink: 0;
+    height: 140px;
+    max-height: 180px;
+    background: var(--bg-panel);
+    border-top: 1px solid var(--border-strong);
+    display: flex;
+    flex-direction: column;
+    z-index: 25;
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.12);
+  }
+  .error-log-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 14px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    user-select: none;
+  }
+  .error-log-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .error-log-badge {
+    font-size: 10px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: var(--bg-surface-active);
+    color: var(--text-muted);
+    font-weight: 700;
+  }
+  .error-log-badge.has-errors {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--danger);
+  }
+  .error-log-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .error-log-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 14px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .error-log-empty {
+    color: var(--text-muted);
+    font-style: italic;
+    padding: 14px 0;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .error-log-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .error-log-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 5px 8px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--danger);
+    border-radius: 4px;
+    color: var(--text-primary);
+    line-height: 1.4;
+  }
+  .error-log-time {
+    color: var(--text-muted);
+    font-size: 10.5px;
+    white-space: nowrap;
+    padding-top: 1px;
+  }
+  .error-log-tag {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-weight: 600;
+    white-space: nowrap;
+    text-transform: uppercase;
+    background: rgba(99, 102, 241, 0.15);
+    color: var(--accent);
+  }
+  .error-log-tag.json, .error-log-tag.system {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--danger);
+  }
+  .error-log-msg {
+    flex: 1;
+    word-break: break-word;
+    white-space: pre-wrap;
+  }
+  .error-log-copy-btn, .error-log-dismiss-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 11px;
+    opacity: 0.6;
+    transition: opacity 0.15s;
+  }
+  .error-log-copy-btn:hover, .error-log-dismiss-btn:hover {
+    opacity: 1;
+    color: var(--text-primary);
+    background: var(--bg-surface-hover);
+  }
+
+  /* ==========================================================================
+     Status Bar
+     ========================================================================== */
+  .statusbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 14px;
+    background: var(--bg-panel);
+    border-top: 1px solid var(--border);
+    font-size: 11.5px;
+    user-select: none;
+    z-index: 30;
+  }
+  .statusbar-left, .statusbar-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .status-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--text-muted);
+  }
+  .status-item.clickable {
+    cursor: pointer;
+  }
+  .status-item.clickable:hover {
+    color: var(--accent);
+  }
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--success);
+  }
+  .status-dot.dirty {
+    background: var(--warning);
+  }
+  .status-error-toggle {
+    transition: all 0.15s ease;
+    border-radius: 4px;
+    padding: 2px 6px;
+  }
+  .status-error-toggle:hover {
+    background: var(--bg-surface-hover);
+  }
+  .status-error-toggle.has-errors {
+    color: var(--danger);
+    font-weight: 600;
+  }
+  .status-error-toggle.has-errors .error-dot {
+    background: var(--danger);
+    box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
+  }
+  .error-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    display: inline-block;
+  }
+  .error-dot.clean {
+    background: var(--success);
+  }
+  .status-select {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-family: var(--font-ui);
+    font-size: 11.5px;
+    cursor: pointer;
+    outline: none;
+  }
+  .status-select option {
+    background: var(--bg-panel);
+    color: var(--text-primary);
+  }
+
+  /* Toast notification */
+  .toast {
+    position: fixed;
+    bottom: 34px;
+    right: 20px;
+    background: var(--bg-panel);
+    color: var(--text-primary);
+    border: 1px solid var(--border-strong);
+    border-left: 4px solid var(--accent);
+    padding: 8px 14px;
+    border-radius: 6px;
+    box-shadow: var(--shadow-lg);
+    font-size: 12px;
+    font-weight: 500;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(10px);
+    transition: opacity 0.2s, transform 0.2s;
+    z-index: 200;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+</style>
+</head>
+<body>
+
+<!-- Hidden File Inputs -->
+<input type="file" id="fileInput" multiple style="display:none;">
+
+<!-- Top Header -->
+<header class="app-header">
+  <div class="brand">
+    <span class="brand-badge">N++</span>
+    <span>Notepad++ Studio</span>
+    <span class="brand-tag">Polyglot IDE v1.1</span>
+  </div>
+  <div class="header-actions">
+    <button class="btn" id="btnNewFile" title="New Document (Ctrl+N)">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+      <span>New</span>
+    </button>
+    <button class="btn" id="btnOpenFile" title="Open File(s) (Ctrl+O)">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
+      <span>Open</span>
+    </button>
+    <button class="btn btn-primary" id="btnSaveFile" title="Save Active File (Ctrl+S)">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M17 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V7l-4-4zm-5 16a3 3 0 110-6 3 3 0 010 6zm3-10H5V5h10v4z"/></svg>
+      <span>Save</span>
+    </button>
+    <button class="btn" id="btnSaveAs" title="Save As... (Ctrl+Shift+S)">Save As</button>
+
+    <div style="height: 18px; width: 1px; background: var(--border); margin: 0 4px;"></div>
+
+    <button class="btn" id="btnToggleSplit" title="Toggle Side-by-Side Reference Split View">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M3 3h18v18H3V3zm8 16V5H5v14h6zm8 0V5h-6v14h6z"/></svg>
+      <span>Split View</span>
+    </button>
+    <button class="btn" id="btnToggleFind" title="Find & Replace (Ctrl+F / Ctrl+H)">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      <span>Find</span>
+    </button>
+    <button class="btn btn-icon" id="btnToggleSidebar" title="Toggle Sidebar (Ctrl+B)">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M3 3h18v18H3V3zm6 2v14h12V5H9z"/></svg>
+    </button>
+    <button class="btn btn-icon" id="btnThemeToggle" title="Toggle Light / Dark Theme">
+      <svg class="icon" id="themeIcon" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
+    </button>
+  </div>
+</header>
+
+<!-- Notepad++ Classic Ribbon / TextFX Bar -->
+<div class="npp-ribbon">
+  <div class="ribbon-group">
+    <button class="ribbon-btn" id="btnUndo" title="Undo (Ctrl+Z)">↶ Undo</button>
+    <button class="ribbon-btn" id="btnRedo" title="Redo (Ctrl+Y)">↷ Redo</button>
+  </div>
+
+  <div class="ribbon-group">
+    <div class="dropdown">
+      <button class="ribbon-btn" id="btnTextFxMenu">✨ TextFX Tools ▾</button>
+      <div class="dropdown-menu" id="textFxDropdown">
+        <div class="dropdown-item" data-action="sort-asc"><span>Sort Lines (A → Z)</span></div>
+        <div class="dropdown-item" data-action="sort-desc"><span>Sort Lines (Z → A)</span></div>
+        <div class="dropdown-item" data-action="remove-duplicates"><span>Remove Duplicate Lines</span></div>
+        <div class="dropdown-divider"></div>
+        <div class="dropdown-item" data-action="trim-whitespace"><span>Trim Leading/Trailing Space</span></div>
+        <div class="dropdown-item" data-action="remove-blank-lines"><span>Remove Empty Lines</span></div>
+        <div class="dropdown-divider"></div>
+        <div class="dropdown-item" data-action="to-upper"><span>UPPERCASE</span><span class="dropdown-shortcut">Ctrl+U</span></div>
+        <div class="dropdown-item" data-action="to-lower"><span>lowercase</span><span class="dropdown-shortcut">Ctrl+L</span></div>
+        <div class="dropdown-item" data-action="to-title"><span>Title Case</span></div>
+        <div class="dropdown-item" data-action="to-camel"><span>camelCase</span></div>
+        <div class="dropdown-divider"></div>
+        <div class="dropdown-item" data-action="format-json"><span>Beautify JSON</span></div>
+        <div class="dropdown-item" data-action="minify-json"><span>Minify JSON</span></div>
+        <div class="dropdown-divider"></div>
+        <div class="dropdown-item" data-action="base64-encode"><span>Base64 Encode (UTF-8)</span></div>
+        <div class="dropdown-item" data-action="base64-decode"><span>Base64 Decode (UTF-8)</span></div>
+        <div class="dropdown-item" data-action="url-encode"><span>URL Encode</span></div>
+        <div class="dropdown-item" data-action="url-decode"><span>URL Decode</span></div>
+      </div>
+    </div>
+
+    <button class="ribbon-btn" id="btnFormatJsonFast" title="Quick Format JSON">{} JSON</button>
+    <button class="ribbon-btn" id="btnRemoveDuplicatesFast" title="Quick Remove Duplicate Lines">Dedupe</button>
+  </div>
+
+  <!-- Macro Recorder Group -->
+  <div class="ribbon-group">
+    <button class="ribbon-btn" id="btnMacroRecord" title="Start / Stop Recording TextFX Macro">● Rec Macro</button>
+    <button class="ribbon-btn" id="btnMacroPlay" title="Play Recorded Macro (Ctrl+Shift+P)">▶ Play Macro</button>
+  </div>
+
+  <div class="ribbon-group">
+    <button class="ribbon-btn" id="btnToggleWrap" title="Toggle Word Wrap (Alt+Z)">↩ Wrap</button>
+    <button class="ribbon-btn" id="btnGotoLine" title="Go to Line (Ctrl+G)"># Go To Line</button>
+    <button class="ribbon-btn" id="btnComment" title="Toggle Comment (Ctrl+/)">💬 Comment</button>
+  </div>
+
+  <div class="ribbon-group">
+    <button class="ribbon-btn" id="btnZoomOut" title="Zoom Out">A-</button>
+    <span id="zoomLevelText" style="font-size:11px; color:var(--text-muted); font-family:var(--font-mono);">100%</span>
+    <button class="ribbon-btn" id="btnZoomIn" title="Zoom In">A+</button>
+  </div>
+</div>
+
+<!-- Tab Bar -->
+<div class="tabbar-container" id="tabbar">
+  <div class="tabs-list" id="tabsList"></div>
+  <button class="btn-new-tab" id="btnAddTab" title="New Document">+</button>
+</div>
+
+<!-- Workspace -->
+<div class="workspace">
+  <!-- Sidebar Explorer -->
+  <aside class="sidebar-explorer" id="sidebar">
+    <div class="sidebar-header">
+      <span>Explorer & Outline</span>
+      <button class="btn btn-sm btn-icon" id="btnCloseSidebar" style="border:none; background:transparent;">✕</button>
+    </div>
+    <div class="sidebar-content">
+      <div>
+        <div class="sidebar-section-title">
+          <span>Open Documents</span>
+          <span id="openDocsCount" style="font-size:10px;">0</span>
+        </div>
+        <div class="open-files-list" id="openFilesList"></div>
+      </div>
+
+      <div>
+        <div class="sidebar-section-title">
+          <span>Document Symbols</span>
+        </div>
+        <div class="outline-list" id="outlineList">
+          <div style="font-size:11px; color:var(--text-muted); padding:6px 8px;">No symbols detected</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="sidebar-section-title">
+          <span>Quick Stats</span>
+        </div>
+        <div id="statsList" style="font-size:11.5px; color:var(--text-secondary); padding:4px 8px; line-height:1.6; font-family:var(--font-mono);"></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Primary + Secondary Split Editor Area -->
+  <div class="editor-workspace-split">
+    <main class="editor-container" id="editorContainer">
+      <div id="editorMount" style="width:100%; height:100%;"></div>
+
+      <!-- Floating Find & Replace Panel -->
+      <div class="find-replace-panel" id="findReplacePanel">
+        <div class="fr-row">
+          <div class="fr-input-wrap">
+            <input type="text" class="fr-input" id="frFindInput" placeholder="Find text, \n, or /regex/...">
+            <div class="fr-flags">
+              <button class="fr-flag-btn" id="frCaseBtn" title="Match Case">Aa</button>
+              <button class="fr-flag-btn" id="frWordBtn" title="Match Whole Word">\b</button>
+              <button class="fr-flag-btn" id="frExtBtn" title="Extended Mode (\n, \r, \t)">\n</button>
+              <button class="fr-flag-btn" id="frRegexBtn" title="Regular Expression">.*</button>
+            </div>
+          </div>
+          <button class="btn btn-sm" id="frFindPrev" title="Find Previous (Shift+Enter)">▲</button>
+          <button class="btn btn-sm" id="frFindNext" title="Find Next (Enter)">▼</button>
+          <button class="btn btn-sm btn-icon" id="frClose" title="Close (Esc)">✕</button>
+        </div>
+        <div class="fr-row" id="frReplaceRow">
+          <input type="text" class="fr-input" id="frReplaceInput" placeholder="Replace with...">
+          <button class="btn btn-sm" id="frReplace">Replace</button>
+          <button class="btn btn-sm" id="frReplaceAll">All</button>
+        </div>
+        <div class="fr-row" style="justify-content: space-between; font-size:11px;">
+          <span id="frMatchesCount" class="fr-count">No matches</span>
+          <span style="color:var(--text-muted);">Enter: Next | Shift+Enter: Prev</span>
+        </div>
+      </div>
+    </main>
+
+    <!-- Secondary Split Reference Editor -->
+    <section class="secondary-editor-pane" id="secondaryPane">
+      <div class="secondary-pane-header">
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span>📑 Split Reference:</span>
+          <select class="status-select" id="splitTabSelect"></select>
+        </div>
+        <button class="btn btn-sm btn-icon" id="btnCloseSplit" title="Close Split View">✕</button>
+      </div>
+      <div id="secondaryEditorMount" style="flex:1; width:100%; height:100%; overflow:hidden;"></div>
+    </section>
+  </div>
+</div>
+
+<!-- Go To Line Modal -->
+<div class="modal-overlay" id="gotoLineModal">
+  <div class="modal-card">
+    <div style="font-weight:600; font-size:13px;">Go to Line</div>
+    <div style="font-size:11.5px; color:var(--text-muted);" id="gotoLineInfo">Line number (1 - 100):</div>
+    <input type="number" id="gotoLineInput" class="fr-input" style="padding:6px;" min="1" placeholder="Line number...">
+    <div style="display:flex; justify-content:flex-end; gap:8px;">
+      <button class="btn btn-sm" id="btnCancelGoto">Cancel</button>
+      <button class="btn btn-sm btn-primary" id="btnConfirmGoto">Go</button>
+    </div>
+  </div>
+</div>
+
+<!-- Suite Error Log Drawer (Locked 140px Height, Clearable) -->
+<div class="error-log-drawer" id="errorLogDrawer" style="display:none;">
+  <div class="error-log-header">
+    <div class="error-log-title">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+      <span>Error Log</span>
+      <span class="error-log-badge" id="errorLogCountBadge">0</span>
+    </div>
+    <div class="error-log-actions">
+      <button class="btn btn-sm" id="btnClearErrorLog" title="Clear all logged errors">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg>
+        <span>Clear</span>
+      </button>
+      <button class="btn btn-sm btn-icon" id="btnCloseErrorLog" title="Close Error Log (Esc)">✕</button>
+    </div>
+  </div>
+  <div class="error-log-body" id="errorLogBody">
+    <div class="error-log-empty" id="errorLogEmpty">No errors recorded.</div>
+    <div class="error-log-list" id="errorLogList"></div>
+  </div>
+</div>
+
+<!-- Status Bar -->
+<footer class="statusbar">
+  <div class="statusbar-left">
+    <div class="status-item">
+      <span class="status-dot" id="saveStatusDot"></span>
+      <span id="statusReady">Saved</span>
+    </div>
+    <div class="status-item clickable status-error-toggle" id="statusErrorIndicator" title="Click to open/close Error Log">
+      <span class="error-dot clean" id="statusErrorDot"></span>
+      <span id="statusErrorText">0 Errors</span>
+    </div>
+    <div class="status-item clickable" id="statusPos" title="Click to Go to Line (Ctrl+G)">Ln 1, Col 1</div>
+    <div class="status-item" id="statusSelection">Sel: 0 | 0 chars</div>
+    <div class="status-item" id="statusLength">0 lines</div>
+  </div>
+  <div class="statusbar-right">
+    <div class="status-item clickable" id="statusLineEndings" title="Click to Toggle CRLF / LF Export Format">CRLF</div>
+    <div class="status-item">UTF-8</div>
+    <div class="status-item">
+      <select class="status-select" id="languageSelect" title="Select Syntax Language">
+        <option value="text">Plain Text</option>
+        <option value="javascript">JavaScript / TS</option>
+        <option value="json">JSON</option>
+        <option value="python">Python</option>
+        <option value="htmlmixed">HTML</option>
+        <option value="xml">XML</option>
+        <option value="css">CSS</option>
+        <option value="markdown">Markdown</option>
+        <option value="yaml">YAML</option>
+        <option value="sql">SQL</option>
+        <option value="text/x-csrc">C / C++</option>
+        <option value="shell">Shell / Bash</option>
+      </select>
+    </div>
+    <div class="status-item clickable" id="statusTabSize" title="Toggle Tab Spacing">Spaces: 2</div>
+  </div>
+</footer>
+
+<!-- Toast notification -->
+<div class="toast" id="toastMessage"></div>
+
+<!-- Application Logic -->
+<script>
+(function() {
+  'use strict';
+
+  const STORAGE_KEY = 'npp_studio_state_v1';
+  let tabs = [];
+  let activeTabId = null;
+  let editor = null;
+  let secondaryEditor = null;
+  let isSwitchingTab = false;
+  let wordWrap = false;
+  let currentZoom = 1.0;
+  let tabSize = 2;
+  let lineEnding = 'CRLF';
+
+  // Macro Recorder State
+  let isRecordingMacro = false;
+  let macroActions = [];
+
+  // Mode Map based on file extension
+  const EXT_MAP = {
+    'js': 'javascript',
+    'jsx': 'javascript',
+    'ts': 'javascript',
+    'tsx': 'javascript',
+    'json': 'json',
+    'py': 'python',
+    'html': 'htmlmixed',
+    'htm': 'htmlmixed',
+    'xml': 'xml',
+    'svg': 'xml',
+    'css': 'css',
+    'scss': 'css',
+    'md': 'markdown',
+    'yaml': 'yaml',
+    'yml': 'yaml',
+    'sql': 'sql',
+    'c': 'text/x-csrc',
+    'cpp': 'text/x-csrc',
+    'h': 'text/x-csrc',
+    'sh': 'shell',
+    'bat': 'shell',
+    'txt': 'text'
+  };
+
+  const ICON_MAP = {
+    'javascript': '⚡',
+    'json': '📦',
+    'python': '🐍',
+    'htmlmixed': '🌐',
+    'xml': '📰',
+    'css': '🎨',
+    'markdown': '📝',
+    'yaml': '📄',
+    'sql': '🗄️',
+    'text/x-csrc': '⚙️',
+    'shell': '🐚',
+    'text': '📄'
+  };
+
+  // Fix 1: Resolve 'json' to CodeMirror's JavaScript JSON sub-mode
+  function resolveCodeMirrorMode(modeKey) {
+    if (modeKey === 'json') {
+      return { name: 'javascript', json: true };
+    }
+    if (modeKey === 'text') {
+      return null;
+    }
+    return modeKey || null;
+  }
+
+  function uid() {
+    return 'doc_' + Math.random().toString(36).substring(2, 9);
+  }
+
+  function escapeHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function detectMode(filename) {
+    const ext = (filename || '').split('.').pop().toLowerCase();
+    return EXT_MAP[ext] || 'text';
+  }
+
+  function getLanguageIcon(mode) {
+    return ICON_MAP[mode] || '📄';
+  }
+
+  // --------------------------------------------------------------------------
+  // Fix 7: Centralized Error Log System (Suite Parity)
+  // --------------------------------------------------------------------------
+  const MAX_LOG_ENTRIES = 50;
+  let errorLogs = [];
+
+  function formatTime(d) {
+    const pad = function(n) { return String(n).padStart(2, '0'); };
+    return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+  }
+
+  function logError(source, message, snippet) {
+    const cleanMsg = (message || 'Unknown error').trim();
+    const entry = {
+      id: uid(),
+      time: formatTime(new Date()),
+      source: source || 'General',
+      message: cleanMsg,
+      snippet: snippet ? snippet.trim() : ''
+    };
+
+    if (errorLogs.length > 0) {
+      const last = errorLogs[errorLogs.length - 1];
+      if (last.source === entry.source && last.message === entry.message) {
+        last.count = (last.count || 1) + 1;
+        last.time = entry.time;
+        renderErrorLogUI();
+        return;
+      }
+    }
+
+    entry.count = 1;
+    errorLogs.push(entry);
+    if (errorLogs.length > MAX_LOG_ENTRIES) errorLogs.shift();
+    renderErrorLogUI();
+  }
+
+  window.dismissError = function(id) {
+    errorLogs = errorLogs.filter(function(e) { return e.id !== id; });
+    renderErrorLogUI();
+  };
+
+  window.copyErrorText = function(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function() {
+        showToast('Error details copied to clipboard');
+      });
+    }
+  };
+
+  function clearErrorLog() {
+    errorLogs = [];
+    renderErrorLogUI();
+    showToast('Error log cleared');
+  }
+
+  function toggleErrorLog(force) {
+    const drawer = document.getElementById('errorLogDrawer');
+    if (!drawer) return;
+    const isOpen = drawer.style.display !== 'none';
+    const shouldOpen = typeof force === 'boolean' ? force : !isOpen;
+    drawer.style.display = shouldOpen ? 'flex' : 'none';
+    if (editor) requestAnimationFrame(function() { editor.refresh(); });
+  }
+
+  function renderErrorLogUI() {
+    const indicator = document.getElementById('statusErrorIndicator');
+    const indicatorText = document.getElementById('statusErrorText');
+    const indicatorDot = document.getElementById('statusErrorDot');
+    const countBadge = document.getElementById('errorLogCountBadge');
+    const listEl = document.getElementById('errorLogList');
+    const emptyEl = document.getElementById('errorLogEmpty');
+    const bodyEl = document.getElementById('errorLogBody');
+
+    const totalErrors = errorLogs.reduce(function(acc, cur) { return acc + (cur.count || 1); }, 0);
+
+    if (countBadge) {
+      countBadge.textContent = totalErrors;
+      countBadge.classList.toggle('has-errors', totalErrors > 0);
+    }
+
+    if (indicator && indicatorText && indicatorDot) {
+      if (totalErrors === 0) {
+        indicator.classList.remove('has-errors');
+        indicatorDot.className = 'error-dot clean';
+        indicatorText.textContent = '0 Errors';
+      } else {
+        indicator.classList.add('has-errors');
+        indicatorDot.className = 'error-dot';
+        indicatorText.textContent = totalErrors + ' Error' + (totalErrors === 1 ? '' : 's');
+      }
+    }
+
+    if (listEl && emptyEl) {
+      if (errorLogs.length === 0) {
+        emptyEl.style.display = 'flex';
+        listEl.innerHTML = '';
+      } else {
+        emptyEl.style.display = 'none';
+        listEl.innerHTML = errorLogs.map(function(item) {
+          const sourceClass = (item.source || '').toLowerCase();
+          const countPill = item.count > 1 ? '<span style="background:var(--bg-panel); border:1px solid var(--border); border-radius:999px; padding:0 5px; font-size:10px; font-weight:700; margin-left:4px;">×' + item.count + '</span>' : '';
+          const escapedSnippet = item.snippet ? escapeHtml(item.snippet.slice(0, 100)) + (item.snippet.length > 100 ? '...' : '') : '';
+          const copyMsg = item.message.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+          return '<div class="error-log-row">' +
+            '<span class="error-log-time">' + escapeHtml(item.time) + '</span>' +
+            '<span class="error-log-tag ' + escapeHtml(sourceClass) + '">' + escapeHtml(item.source) + '</span>' +
+            '<div class="error-log-msg">' +
+              '<span>' + escapeHtml(item.message) + '</span>' + countPill +
+              (escapedSnippet ? '<div style="opacity:0.75; font-size:10.5px; margin-top:2px;">' + escapedSnippet + '</div>' : '') +
+            '</div>' +
+            '<button class="error-log-copy-btn" onclick="copyErrorText(\'' + copyMsg + '\')" title="Copy Error Message">📋</button>' +
+            '<button class="error-log-dismiss-btn" onclick="dismissError(\'' + item.id + '\')" title="Dismiss">✕</button>' +
+          '</div>';
+        }).join('');
+
+        if (bodyEl) bodyEl.scrollTop = bodyEl.scrollHeight;
+      }
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // CodeMirror Initialization
+  // --------------------------------------------------------------------------
+  function initEditor() {
+    const mount = document.getElementById('editorMount');
+    editor = CodeMirror(mount, {
+      value: '',
+      mode: 'javascript',
+      keyMap: 'sublime',
+      lineNumbers: true,
+      lineWrapping: false,
+      styleActiveLine: true,
+      matchBrackets: true,
+      autoCloseBrackets: true,
+      indentUnit: 2,
+      tabSize: 2,
+      indentWithTabs: false,
+      foldGutter: true,
+      gutters: ['CodeMirror-linenumbers', 'CodeMirror-foldgutter'],
+      extraKeys: {
+        'Ctrl-S': function() { saveActiveFile(); },
+        'Ctrl-O': function() { document.getElementById('fileInput').click(); },
+        'Ctrl-N': function() { createNewTab(); },
+        'Ctrl-W': function() { closeTab(activeTabId); },
+        'Ctrl-F': function() { openFindDialog(false); },
+        'Ctrl-H': function() { openFindDialog(true); },
+        'Ctrl-G': function() { openGotoLineModal(); },
+        'Alt-Z': function() { toggleWordWrap(); },
+        'Ctrl-/': function(cm) { cm.toggleComment(); },
+        'Ctrl-U': function() { runTextFxAction('to-upper'); },
+        'Ctrl-L': function() { runTextFxAction('to-lower'); },
+        'Ctrl-Shift-P': function() { playMacro(); }
+      }
+    });
+
+    // Secondary Reference Split Editor
+    const secMount = document.getElementById('secondaryEditorMount');
+    secondaryEditor = CodeMirror(secMount, {
+      value: '',
+      mode: 'javascript',
+      lineNumbers: true,
+      readOnly: false,
+      foldGutter: true,
+      gutters: ['CodeMirror-linenumbers', 'CodeMirror-foldgutter']
+    });
+
+    secondaryEditor.on('change', function() {
+      const splitId = document.getElementById('splitTabSelect').value;
+      const splitTab = tabs.find(function(t) { return t.id === splitId; });
+      if (!splitTab || isSwitchingTab) return;
+      splitTab.content = secondaryEditor.getValue();
+      splitTab.dirty = splitTab.content !== splitTab.savedContent;
+      if (splitTab.id === activeTabId && editor.getValue() !== splitTab.content) {
+        isSwitchingTab = true;
+        const cur = editor.getCursor();
+        editor.setValue(splitTab.content);
+        editor.setCursor(cur);
+        isSwitchingTab = false;
+      }
+      renderTabs();
+      scheduleSave();
+    });
+
+    // Fix 2: Guard change handler with isSwitchingTab so tab selection does not trigger false edits
+    editor.on('change', function() {
+      if (isSwitchingTab) return;
+      const tab = getActiveTab();
+      if (!tab) return;
+      tab.content = editor.getValue();
+      const isDirty = tab.content !== tab.savedContent;
+      if (tab.dirty !== isDirty) {
+        tab.dirty = isDirty;
+        renderTabs();
+        renderSidebarFiles();
+      }
+      updateSaveIndicator(isDirty);
+      updateStatusMetrics();
+      scheduleOutlineUpdate();
+      scheduleSave();
+    });
+
+    editor.on('cursorActivity', function() {
+      updateCursorPosition();
+    });
+
+    // Drag and Drop File Support
+    window.addEventListener('dragover', function(e) { e.preventDefault(); });
+    window.addEventListener('drop', function(e) {
+      e.preventDefault();
+      if (e.dataTransfer && e.dataTransfer.files.length) {
+        handleFiles(e.dataTransfer.files);
+      }
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // Document / Tab Management
+  // --------------------------------------------------------------------------
+  function createTab(name, content, mode) {
+    const fileName = name || 'untitled.txt';
+    const docMode = mode || detectMode(fileName);
+    return {
+      id: uid(),
+      name: fileName,
+      content: content || '',
+      savedContent: content || '',
+      mode: docMode,
+      dirty: false,
+      cursor: { line: 0, ch: 0 },
+      scroll: { left: 0, top: 0 },
+      history: null
+    };
+  }
+
+  function getActiveTab() {
+    return tabs.find(function(t) { return t.id === activeTabId; }) || tabs[0];
+  }
+
+  function updateSaveIndicator(isDirty) {
+    const dot = document.getElementById('saveStatusDot');
+    const txt = document.getElementById('statusReady');
+    if (dot && txt) {
+      dot.className = isDirty ? 'status-dot dirty' : 'status-dot';
+      txt.textContent = isDirty ? 'Unsaved changes' : 'Saved';
+    }
+  }
+
+  // Fix 2: Isolate Undo/Redo history per tab & guard setValue
+  function selectTab(id) {
+    const curTab = getActiveTab();
+    if (curTab && editor && activeTabId) {
+      curTab.cursor = editor.getCursor();
+      curTab.scroll = editor.getScrollInfo();
+      curTab.history = editor.getHistory();
+    }
+
+    activeTabId = id;
+    const tab = getActiveTab();
+    if (!tab) return;
+
+    isSwitchingTab = true;
+    editor.setValue(tab.content || '');
+    editor.setOption('mode', resolveCodeMirrorMode(tab.mode));
+    if (tab.history) {
+      editor.setHistory(tab.history);
+    } else {
+      editor.clearHistory();
+    }
+    isSwitchingTab = false;
+
+    document.getElementById('languageSelect').value = tab.mode;
+
+    if (tab.cursor) {
+      editor.setCursor(tab.cursor);
+    }
+    if (tab.scroll) {
+      editor.scrollTo(tab.scroll.left, tab.scroll.top);
+    }
+
+    editor.focus();
+    updateSaveIndicator(tab.dirty);
+    renderTabs();
+    renderSidebarFiles();
+    populateSplitTabSelect();
+    updateOutline();
+    updateStatusMetrics();
+    updateCursorPosition();
+    document.title = (tab.dirty ? '• ' : '') + tab.name + ' - Notepad++ Studio';
+  }
+
+  function createNewTab(name, content, mode) {
+    const defaultName = name || ('untitled' + (tabs.length + 1) + '.txt');
+    const newTab = createTab(defaultName, content, mode);
+    tabs.push(newTab);
+    selectTab(newTab.id);
+    showToast('Created ' + newTab.name);
+  }
+
+  function closeTab(id) {
+    const idx = tabs.findIndex(function(t) { return t.id === id; });
+    if (idx === -1) return;
+
+    const tab = tabs[idx];
+    if (tab.dirty) {
+      if (!confirm(tab.name + ' has unsaved changes. Close anyway?')) {
+        return;
+      }
+    }
+
+    tabs.splice(idx, 1);
+    if (tabs.length === 0) {
+      const fallback = createTab('untitled.txt', '', 'text');
+      tabs.push(fallback);
+      activeTabId = null;
+      selectTab(fallback.id);
+    } else {
+      const nextId = tabs[Math.min(idx, tabs.length - 1)].id;
+      activeTabId = null;
+      selectTab(nextId);
+    }
+    scheduleSave();
+  }
+
+  function renameTab(id, newName) {
+    const tab = tabs.find(function(t) { return t.id === id; });
+    if (!tab || !newName.trim()) return;
+    tab.name = newName.trim();
+    tab.mode = detectMode(tab.name);
+    if (tab.id === activeTabId) {
+      editor.setOption('mode', resolveCodeMirrorMode(tab.mode));
+      document.getElementById('languageSelect').value = tab.mode;
+    }
+    renderTabs();
+    renderSidebarFiles();
+    populateSplitTabSelect();
+    scheduleSave();
+  }
+
+  function renderTabs() {
+    const list = document.getElementById('tabsList');
+    list.innerHTML = '';
+
+    tabs.forEach(function(tab) {
+      const tabEl = document.createElement('div');
+      tabEl.className = 'tab-item ' + (tab.id === activeTabId ? 'active ' : '') + (tab.dirty ? 'dirty' : '');
+      tabEl.title = tab.name + (tab.dirty ? ' (Modified)' : '');
+
+      const icon = document.createElement('span');
+      icon.className = 'tab-icon';
+      icon.textContent = getLanguageIcon(tab.mode);
+
+      const title = document.createElement('span');
+      title.className = 'tab-title';
+      title.textContent = tab.name;
+
+      title.ondblclick = function(e) {
+        e.stopPropagation();
+        const currentName = tab.name;
+        const promptName = prompt('Rename document:', currentName);
+        if (promptName && promptName.trim()) {
+          renameTab(tab.id, promptName);
+        }
+      };
+
+      const dot = document.createElement('span');
+      dot.className = 'tab-dirty-dot';
+
+      const close = document.createElement('span');
+      close.className = 'tab-close';
+      close.textContent = '✕';
+      close.title = 'Close Tab';
+      close.onclick = function(e) {
+        e.stopPropagation();
+        closeTab(tab.id);
+      };
+
+      tabEl.appendChild(icon);
+      tabEl.appendChild(title);
+      tabEl.appendChild(dot);
+      tabEl.appendChild(close);
+
+      tabEl.onclick = function() {
+        if (tab.id !== activeTabId) selectTab(tab.id);
+      };
+
+      list.appendChild(tabEl);
+    });
+  }
+
+  function renderSidebarFiles() {
+    const container = document.getElementById('openFilesList');
+    const badge = document.getElementById('openDocsCount');
+    if (badge) badge.textContent = tabs.length;
+    container.innerHTML = '';
+
+    tabs.forEach(function(tab) {
+      const item = document.createElement('div');
+      item.className = 'file-tree-item ' + (tab.id === activeTabId ? 'active' : '');
+      item.innerHTML = '<span>' + getLanguageIcon(tab.mode) + '</span>' +
+        '<span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + escapeHtml(tab.name) + '</span>' +
+        (tab.dirty ? '<span style="color:var(--accent); font-weight:bold;">•</span>' : '');
+
+      item.onclick = function() {
+        if (tab.id !== activeTabId) selectTab(tab.id);
+      };
+      container.appendChild(item);
+    });
+  }
+
+  // Secondary Split View Controller
+  function populateSplitTabSelect() {
+    const sel = document.getElementById('splitTabSelect');
+    if (!sel) return;
+    const prevVal = sel.value;
+    sel.innerHTML = '';
+    tabs.forEach(function(t) {
+      const opt = document.createElement('option');
+      opt.value = t.id;
+      opt.textContent = t.name;
+      sel.appendChild(opt);
+    });
+    const targetId = tabs.some(function(t) { return t.id === prevVal; }) ? prevVal : (tabs[1] ? tabs[1].id : tabs[0].id);
+    sel.value = targetId;
+    loadTabIntoSplitView(targetId);
+  }
+
+  function loadTabIntoSplitView(tabId) {
+    const t = tabs.find(function(item) { return item.id === tabId; });
+    if (!t || !secondaryEditor) return;
+    isSwitchingTab = true;
+    secondaryEditor.setValue(t.content || '');
+    secondaryEditor.setOption('mode', resolveCodeMirrorMode(t.mode));
+    isSwitchingTab = false;
+    requestAnimationFrame(function() { secondaryEditor.refresh(); });
+  }
+
+  // --------------------------------------------------------------------------
+  // Document Symbols & Outline Extractor
+  // --------------------------------------------------------------------------
+  let outlineTimer = null;
+  function scheduleOutlineUpdate() {
+    clearTimeout(outlineTimer);
+    outlineTimer = setTimeout(updateOutline, 400);
+  }
+
+  function updateOutline() {
+    const list = document.getElementById('outlineList');
+    const tab = getActiveTab();
+    if (!tab || !editor) return;
+
+    const content = editor.getValue();
+    const lines = content.split('\n');
+    const symbols = [];
+
+    lines.forEach(function(line, idx) {
+      const trimmed = line.trim();
+      if (!trimmed) return;
+
+      let match = null;
+      if (tab.mode === 'javascript') {
+        match = trimmed.match(/^(?:export\s+)?(?:async\s+)?function\s*([a-zA-Z0-9_$]+)/) ||
+                trimmed.match(/^(?:const|let|var)\s+([a-zA-Z0-9_$]+)\s*=\s*(?:async\s*)?(?:\([^)]*\)|[a-zA-Z0-9_$]+)\s*=>/) ||
+                trimmed.match(/^class\s+([a-zA-Z0-9_$]+)/);
+        if (match) symbols.push({ line: idx, name: match[1], type: trimmed.startsWith('class') ? 'class' : 'fn' });
+      } else if (tab.mode === 'python') {
+        match = trimmed.match(/^def\s+([a-zA-Z0-9_]+)/) || trimmed.match(/^class\s+([a-zA-Z0-9_]+)/);
+        if (match) symbols.push({ line: idx, name: match[1], type: trimmed.startsWith('class') ? 'class' : 'fn' });
+      } else if (tab.mode === 'markdown') {
+        match = trimmed.match(/^(#{1,4})\s+(.+)/);
+        if (match) symbols.push({ line: idx, name: match[2], type: 'h' + match[1].length });
+      } else if (tab.mode === 'json') {
+        match = trimmed.match(/^"([^"]+)"\s*:/);
+        if (match) symbols.push({ line: idx, name: match[1], type: 'key' });
+      }
+    });
+
+    if (symbols.length === 0) {
+      list.innerHTML = '<div style="font-size:11px; color:var(--text-muted); padding:6px 8px;">No outline symbols found</div>';
+      return;
+    }
+
+    list.innerHTML = '';
+    symbols.forEach(function(sym) {
+      const el = document.createElement('div');
+      el.className = 'outline-item';
+      el.innerHTML = '<span class="outline-tag">' + sym.type + '</span>' +
+        '<span style="flex:1; overflow:hidden; text-overflow:ellipsis;">' + escapeHtml(sym.name) + '</span>' +
+        '<span style="font-size:10px; color:var(--text-muted);">:' + (sym.line + 1) + '</span>';
+
+      el.onclick = function() {
+        editor.setCursor({ line: sym.line, ch: 0 });
+        editor.focus();
+      };
+      list.appendChild(el);
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // Document Metrics & Status Bar
+  // --------------------------------------------------------------------------
+  function updateCursorPosition() {
+    if (!editor) return;
+    const pos = editor.getCursor();
+    const sel = editor.getSelection();
+    document.getElementById('statusPos').textContent = 'Ln ' + (pos.line + 1) + ', Col ' + (pos.ch + 1);
+
+    const selLines = sel ? sel.split('\n').length : 0;
+    const selChars = sel ? sel.length : 0;
+    document.getElementById('statusSelection').textContent = selChars > 0 ?
+      ('Sel: ' + selLines + ' line' + (selLines === 1 ? '' : 's') + ' | ' + selChars + ' chars') :
+      'Sel: 0 | 0 chars';
+  }
+
+  function updateStatusMetrics() {
+    if (!editor) return;
+    const doc = editor.getValue();
+    const lines = editor.lineCount();
+    const chars = doc.length;
+    const words = doc.trim() ? doc.trim().split(/\s+/).length : 0;
+
+    document.getElementById('statusLength').textContent = lines + ' line' + (lines === 1 ? '' : 's');
+
+    const statsEl = document.getElementById('statsList');
+    if (statsEl) {
+      statsEl.innerHTML =
+        '<div>Lines: ' + lines.toLocaleString() + '</div>' +
+        '<div>Words: ' + words.toLocaleString() + '</div>' +
+        '<div>Chars: ' + chars.toLocaleString() + '</div>' +
+        '<div>Size: ' + (chars / 1024).toFixed(1) + ' KB</div>';
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // TextFX String Manipulation & Macro Dispatcher
+  // --------------------------------------------------------------------------
+  function getTargetTextRange() {
+    const sel = editor.getSelection();
+    if (sel) {
+      return { text: sel, isSelection: true };
+    }
+    return { text: editor.getValue(), isSelection: false };
+  }
+
+  function applyTransformedText(range, transformed) {
+    if (range.isSelection) {
+      editor.replaceSelection(transformed);
+    } else {
+      const cur = editor.getCursor();
+      editor.setValue(transformed);
+      editor.setCursor(cur);
+    }
+  }
+
+  function runTextFxAction(action) {
+    if (isRecordingMacro) {
+      macroActions.push(action);
+    }
+
+    if (action === 'sort-asc') sortLines(false);
+    else if (action === 'sort-desc') sortLines(true);
+    else if (action === 'remove-duplicates') removeDuplicateLines();
+    else if (action === 'trim-whitespace') trimWhitespace();
+    else if (action === 'remove-blank-lines') removeBlankLines();
+    else if (action === 'to-upper') transformCase('upper');
+    else if (action === 'to-lower') transformCase('lower');
+    else if (action === 'to-title') transformCase('title');
+    else if (action === 'to-camel') transformCase('camel');
+    else if (action === 'format-json') formatJson(false);
+    else if (action === 'minify-json') formatJson(true);
+    else if (action === 'base64-encode') base64Convert(false);
+    else if (action === 'base64-decode') base64Convert(true);
+    else if (action === 'url-encode') urlConvert(false);
+    else if (action === 'url-decode') urlConvert(true);
+  }
+
+  function toggleMacroRecording() {
+    const btn = document.getElementById('btnMacroRecord');
+    isRecordingMacro = !isRecordingMacro;
+    if (isRecordingMacro) {
+      macroActions = [];
+      btn.classList.add('recording');
+      btn.textContent = '⏹ Stop Macro';
+      showToast('Recording TextFX Macro...');
+    } else {
+      btn.classList.remove('recording');
+      btn.textContent = '● Rec Macro';
+      showToast('Macro saved (' + macroActions.length + ' step' + (macroActions.length === 1 ? '' : 's') + ')');
+    }
+  }
+
+  function playMacro() {
+    if (!macroActions.length) {
+      showToast('No macro actions recorded yet');
+      return;
+    }
+    const wasRecording = isRecordingMacro;
+    isRecordingMacro = false;
+    editor.operation(function() {
+      macroActions.forEach(function(action) {
+        runTextFxAction(action);
+      });
+    });
+    isRecordingMacro = wasRecording;
+    showToast('Played macro (' + macroActions.length + ' steps)');
+  }
+
+  function sortLines(descending) {
+    const range = getTargetTextRange();
+    const lines = range.text.split('\n');
+    lines.sort(function(a, b) {
+      return descending ? b.localeCompare(a) : a.localeCompare(b);
+    });
+    applyTransformedText(range, lines.join('\n'));
+    showToast('Lines sorted ' + (descending ? 'Z → A' : 'A → Z'));
+  }
+
+  function removeDuplicateLines() {
+    const range = getTargetTextRange();
+    const lines = range.text.split('\n');
+    const seen = new Set();
+    const unique = [];
+    lines.forEach(function(l) {
+      if (!seen.has(l)) {
+        seen.add(l);
+        unique.push(l);
+      }
+    });
+    const removedCount = lines.length - unique.length;
+    applyTransformedText(range, unique.join('\n'));
+    showToast('Removed ' + removedCount + ' duplicate line(s)');
+  }
+
+  function trimWhitespace() {
+    const range = getTargetTextRange();
+    const lines = range.text.split('\n').map(function(l) { return l.trim(); });
+    applyTransformedText(range, lines.join('\n'));
+    showToast('Trimmed leading & trailing whitespace');
+  }
+
+  function removeBlankLines() {
+    const range = getTargetTextRange();
+    const lines = range.text.split('\n').filter(function(l) { return l.trim().length > 0; });
+    applyTransformedText(range, lines.join('\n'));
+    showToast('Removed empty lines');
+  }
+
+  function transformCase(type) {
+    const range = getTargetTextRange();
+    let res = range.text;
+    if (type === 'upper') {
+      res = range.text.toUpperCase();
+    } else if (type === 'lower') {
+      res = range.text.toLowerCase();
+    } else if (type === 'title') {
+      res = range.text.replace(/\w\S*/g, function(txt) {
+        return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+      });
+    } else if (type === 'camel') {
+      res = range.text.replace(/(?:^\w|[A-Z]|\b\w|\s+)/g, function(match, index) {
+        if (+match === 0) return '';
+        return index === 0 ? match.toLowerCase() : match.toUpperCase();
+      });
+    }
+    applyTransformedText(range, res);
+    showToast('Case converted to ' + type);
+  }
+
+  function formatJson(minify) {
+    const range = getTargetTextRange();
+    try {
+      const parsed = JSON.parse(range.text);
+      const res = minify ? JSON.stringify(parsed) : JSON.stringify(parsed, null, tabSize);
+      applyTransformedText(range, res);
+      showToast(minify ? 'JSON minified' : 'JSON formatted');
+    } catch (e) {
+      logError('JSON', 'JSON Parse Error: ' + e.message, range.text.slice(0, 100));
+      showToast('Invalid JSON: ' + e.message);
+    }
+  }
+
+  // Fix 4: UTF-8 Safe Base64 Encode/Decode
+  function base64Convert(decode) {
+    const range = getTargetTextRange();
+    try {
+      let res;
+      if (decode) {
+        const binary = atob(range.text.trim());
+        const bytes = Uint8Array.from(binary, function(c) { return c.charCodeAt(0); });
+        res = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+      } else {
+        const bytes = new TextEncoder().encode(range.text);
+        let binary = '';
+        bytes.forEach(function(b) { binary += String.fromCharCode(b); });
+        res = btoa(binary);
+      }
+      applyTransformedText(range, res);
+      showToast(decode ? 'Base64 decoded (UTF-8)' : 'Base64 encoded (UTF-8)');
+    } catch (e) {
+      logError('Base64', e.message, range.text.slice(0, 80));
+      showToast('Base64 error: ' + e.message);
+    }
+  }
+
+  function urlConvert(decode) {
+    const range = getTargetTextRange();
+    try {
+      const res = decode ? decodeURIComponent(range.text) : encodeURIComponent(range.text);
+      applyTransformedText(range, res);
+      showToast(decode ? 'URL decoded' : 'URL encoded');
+    } catch (e) {
+      logError('URL', e.message, range.text.slice(0, 80));
+      showToast('URL conversion error: ' + e.message);
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // Fix 3 & 4: Advanced Find & Replace Controller (with Extended \n & Zero-Width Guard)
+  // --------------------------------------------------------------------------
+  function parseExtendedEscapes(str) {
+    return str
+      .replace(/\\n/g, '\n')
+      .replace(/\\r/g, '\r')
+      .replace(/\\t/g, '\t')
+      .replace(/\\0/g, '\0')
+      .replace(/\\\\/g, '\\');
+  }
+
+  function openFindDialog(showReplace) {
+    const panel = document.getElementById('findReplacePanel');
+    const replaceRow = document.getElementById('frReplaceRow');
+    panel.classList.add('show');
+    replaceRow.style.display = showReplace ? 'flex' : 'none';
+
+    const sel = editor.getSelection();
+    if (sel && !sel.includes('\n')) {
+      document.getElementById('frFindInput').value = sel;
+    }
+    document.getElementById('frFindInput').focus();
+    document.getElementById('frFindInput').select();
+    updateSearchResults();
+  }
+
+  function closeFindDialog() {
+    document.getElementById('findReplacePanel').classList.remove('show');
+    editor.focus();
+  }
+
+  function getSearchQuery() {
+    let text = document.getElementById('frFindInput').value;
+    if (!text) return null;
+
+    const isCase = document.getElementById('frCaseBtn').classList.contains('active');
+    const isWord = document.getElementById('frWordBtn').classList.contains('active');
+    const isExt = document.getElementById('frExtBtn').classList.contains('active');
+    const isRegex = document.getElementById('frRegexBtn').classList.contains('active');
+
+    if (isExt && !isRegex) {
+      text = parseExtendedEscapes(text);
+    }
+
+    if (isRegex) {
+      try {
+        let pattern = text;
+        if (isWord) pattern = '\\b' + pattern + '\\b';
+        return new RegExp(pattern, isCase ? 'g' : 'gi');
+      } catch (e) {
+        logError('Regex', e.message, text);
+        return null;
+      }
+    } else {
+      if (isWord) {
+        const escaped = text.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+        return new RegExp('\\b' + escaped + '\\b', isCase ? 'g' : 'gi');
+      }
+      return { query: text, caseFold: !isCase };
+    }
+  }
+
+  function getReplaceString() {
+    const raw = document.getElementById('frReplaceInput').value;
+    const isExt = document.getElementById('frExtBtn').classList.contains('active');
+    return isExt ? parseExtendedEscapes(raw) : raw;
+  }
+
+  function updateSearchResults() {
+    const query = getSearchQuery();
+    const countEl = document.getElementById('frMatchesCount');
+    if (!query) {
+      countEl.textContent = 'No matches';
+      return;
+    }
+
+    let count = 0;
+    const cursor = editor.getSearchCursor(query.query ? query.query : query, { line: 0, ch: 0 }, query.caseFold);
+    while (cursor.findNext()) {
+      count++;
+      // Guard zero-width regex matches like ^ or $
+      const from = cursor.from();
+      const to = cursor.to();
+      if (from.line === to.line && from.ch === to.ch) {
+        if (from.line + 1 < editor.lineCount()) {
+          cursor = editor.getSearchCursor(query.query ? query.query : query, { line: from.line + 1, ch: 0 }, query.caseFold);
+        } else {
+          break;
+        }
+      }
+      if (count > 999) break;
+    }
+    countEl.textContent = count > 0 ? (count + (count > 999 ? '+' : '') + ' match' + (count === 1 ? '' : 'es')) : 'No matches';
+  }
+
+  function findNext(reverse) {
+    const query = getSearchQuery();
+    if (!query) return;
+
+    const searchTarget = query.query ? query.query : query;
+    const startPos = reverse ? editor.getCursor('from') : editor.getCursor('to');
+    let cursor = editor.getSearchCursor(searchTarget, startPos, query.caseFold);
+    let found = reverse ? cursor.findPrevious() : cursor.findNext();
+
+    if (!found) {
+      cursor = editor.getSearchCursor(searchTarget, reverse ? { line: editor.lineCount(), ch: 0 } : { line: 0, ch: 0 }, query.caseFold);
+      found = reverse ? cursor.findPrevious() : cursor.findNext();
+    }
+
+    if (found) {
+      editor.setSelection(cursor.from(), cursor.to());
+      editor.scrollIntoView({ from: cursor.from(), to: cursor.to() }, 60);
+    } else {
+      showToast('Phrase not found');
+    }
+  }
+
+  function replaceMatch() {
+    const replaceText = getReplaceString();
+    const query = getSearchQuery();
+    if (!query) return;
+
+    const sel = editor.getSelection();
+    if (sel) {
+      editor.replaceSelection(replaceText);
+      findNext(false);
+      updateSearchResults();
+    } else {
+      findNext(false);
+    }
+  }
+
+  // Fix 3: Guard Replace All against zero-width regex infinite loops
+  function replaceAllMatches() {
+    const replaceText = getReplaceString();
+    const query = getSearchQuery();
+    if (!query) return;
+
+    const isRegex = document.getElementById('frRegexBtn').classList.contains('active');
+    if (isRegex && query instanceof RegExp) {
+      const src = editor.getValue();
+      const matches = src.match(query);
+      const count = matches ? matches.length : 0;
+      if (count > 0) {
+        const cur = editor.getCursor();
+        editor.setValue(src.replace(query, replaceText));
+        editor.setCursor(cur);
+      }
+      updateSearchResults();
+      showToast('Replaced ' + count + ' occurrences');
+      return;
+    }
+
+    const searchTarget = query.query ? query.query : query;
+    let count = 0;
+    editor.operation(function() {
+      const cursor = editor.getSearchCursor(searchTarget, { line: 0, ch: 0 }, query.caseFold);
+      while (cursor.findNext()) {
+        cursor.replace(replaceText);
+        count++;
+        if (count > 10000) break;
+      }
+    });
+    updateSearchResults();
+    showToast('Replaced ' + count + ' occurrences');
+  }
+
+  // --------------------------------------------------------------------------
+  // File System & Persistence
+  // --------------------------------------------------------------------------
+  let saveTimer = null;
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(persistState, 800);
+  }
+
+  function persistState() {
+    try {
+      const data = {
+        activeTabId: activeTabId,
+        wordWrap: wordWrap,
+        tabSize: tabSize,
+        lineEnding: lineEnding,
+        tabs: tabs.map(function(t) {
+          return {
+            id: t.id,
+            name: t.name,
+            content: t.content,
+            savedContent: t.savedContent,
+            mode: t.mode,
+            dirty: t.dirty
+          };
+        })
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch (e) {
+      console.warn('LocalStorage save failed:', e);
+    }
+  }
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.tabs && parsed.tabs.length) {
+          tabs = parsed.tabs;
+          wordWrap = !!parsed.wordWrap;
+          tabSize = parsed.tabSize || 2;
+          lineEnding = parsed.lineEnding || 'CRLF';
+          activeTabId = parsed.activeTabId || tabs[0].id;
+          return;
+        }
+      }
+    } catch (e) {}
+
+    tabs = [
+      createTab('welcome.txt',
+`==========================================================================
+Welcome to Notepad++ Studio IDE 🚀
+A fast, modern, polyglot code editor for web developers & power users.
+==========================================================================
+
+✨ KEY FEATURES:
+- 📑 Multi-Tab Document Workspace: Click '+' or press Ctrl+N
+- 🪟 Dual-Pane Split View: Compare or reference any two tabs side-by-side
+- 🔴 Macro Recorder: Record & replay multi-step TextFX pipelines (Ctrl+Shift+P)
+- ⚡ Sublime Text Keybindings: Multi-cursor (Ctrl+D), duplicate lines, etc.
+- 🎨 Syntax Highlighting: JS, JSON, Python, HTML, XML, CSS, SQL, Markdown, C/C++
+- 🔍 Advanced Find & Replace: Case, Whole Word, Extended (\\n, \\t), Regex
+- 🧹 Classic Notepad++ TextFX Tools: Deduplicate lines, sort, UTF-8 Base64
+
+SHORTCUT CHEATSHEET:
+- Ctrl+S         Save active document (with CRLF/LF normalization)
+- Ctrl+N         New document
+- Ctrl+O         Open file(s)
+- Ctrl+W         Close active tab
+- Ctrl+F / H     Find & Replace
+- Ctrl+G         Go to Line
+- Ctrl+/         Toggle Comment
+- Alt+Z          Toggle Word Wrap
+- Ctrl+B         Toggle Sidebar Explorer
+`, 'text'),
+      createTab('demo.js',
+`// JavaScript Demonstration with Symbol Outline
+class DataPipeline {
+  constructor(name) {
+    this.name = name;
+    this.buffer = [];
+  }
+
+  async processQueue(items) {
+    console.log("Processing batch of " + items.length + " items");
+    return items.map(x => ({ id: x.id, timestamp: Date.now() }));
+  }
+
+  clear() {
+    this.buffer = [];
+  }
+}
+
+function calculateChecksum(payload) {
+  return btoa(JSON.stringify(payload)).slice(0, 16);
+}
+`, 'javascript'),
+      createTab('package.json',
+`{
+  "name": "notepad-studio-ide",
+  "version": "1.1.0",
+  "description": "High-performance browser-based text editor with TextFX tools",
+  "features": [
+    "multi-tab",
+    "split-view",
+    "macro-recorder",
+    "textfx",
+    "extended-find-replace",
+    "error-log-drawer"
+  ]
+}
+`, 'json')
+    ];
+    activeTabId = tabs[0].id;
+  }
+
+  // Fix 5: Normalize CRLF vs LF line endings on file save
+  function saveActiveFile() {
+    const tab = getActiveTab();
+    if (!tab || !editor) return;
+
+    tab.savedContent = editor.getValue();
+    tab.dirty = false;
+    updateSaveIndicator(false);
+    renderTabs();
+    renderSidebarFiles();
+    persistState();
+
+    const normalizedContent = lineEnding === 'CRLF'
+      ? tab.savedContent.replace(/\r?\n/g, '\r\n')
+      : tab.savedContent.replace(/\r\n/g, '\n');
+
+    const blob = new Blob([normalizedContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = tab.name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    showToast('Saved & downloaded ' + tab.name + ' (' + lineEnding + ')');
+    document.title = tab.name + ' - Notepad++ Studio';
+  }
+
+  function handleFiles(fileList) {
+    Array.from(fileList).forEach(function(file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        createNewTab(file.name, e.target.result);
+      };
+      reader.readAsText(file);
+    });
+  }
+
+  function toggleWordWrap() {
+    wordWrap = !wordWrap;
+    editor.setOption('lineWrapping', wordWrap);
+    document.getElementById('btnToggleWrap').classList.toggle('active', wordWrap);
+    showToast('Word wrap ' + (wordWrap ? 'enabled' : 'disabled'));
+    scheduleSave();
+  }
+
+  function openGotoLineModal() {
+    const modal = document.getElementById('gotoLineModal');
+    const input = document.getElementById('gotoLineInput');
+    const info = document.getElementById('gotoLineInfo');
+    const totalLines = editor.lineCount();
+    info.textContent = 'Enter line number (1 - ' + totalLines + '):';
+    input.max = totalLines;
+    input.value = editor.getCursor().line + 1;
+    modal.classList.add('show');
+    input.focus();
+    input.select();
+  }
+
+  function showToast(msg) {
+    const toast = document.getElementById('toastMessage');
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(function() {
+      toast.classList.remove('show');
+    }, 2500);
+  }
+
+  // --------------------------------------------------------------------------
+  // UI & Event Bindings
+  // --------------------------------------------------------------------------
+  function setupEvents() {
+    document.getElementById('btnNewFile').onclick = function() { createNewTab(); };
+    document.getElementById('btnAddTab').onclick = function() { createNewTab(); };
+
+    document.getElementById('btnOpenFile').onclick = function() {
+      document.getElementById('fileInput').click();
+    };
+    document.getElementById('fileInput').onchange = function(e) {
+      if (e.target.files.length) {
+        handleFiles(e.target.files);
+        e.target.value = '';
+      }
+    };
+
+    document.getElementById('btnSaveFile').onclick = saveActiveFile;
+    document.getElementById('btnSaveAs').onclick = function() {
+      const tab = getActiveTab();
+      if (!tab) return;
+      const newName = prompt('Save Document As:', tab.name);
+      if (newName && newName.trim()) {
+        renameTab(tab.id, newName);
+        saveActiveFile();
+      }
+    };
+
+    // Dual-Pane Split View Toggle
+    const secondaryPane = document.getElementById('secondaryPane');
+    function toggleSplitView() {
+      const isOpen = secondaryPane.classList.toggle('open');
+      document.getElementById('btnToggleSplit').classList.toggle('btn-primary', isOpen);
+      if (isOpen) {
+        populateSplitTabSelect();
+      }
+      setTimeout(function() {
+        if (editor) editor.refresh();
+        if (secondaryEditor) secondaryEditor.refresh();
+      }, 60);
+    }
+    document.getElementById('btnToggleSplit').onclick = toggleSplitView;
+    document.getElementById('btnCloseSplit').onclick = toggleSplitView;
+    document.getElementById('splitTabSelect').onchange = function(e) {
+      loadTabIntoSplitView(e.target.value);
+    };
+
+    // Sidebar Toggle
+    const sidebar = document.getElementById('sidebar');
+    const btnToggleSidebar = document.getElementById('btnToggleSidebar');
+    const btnCloseSidebar = document.getElementById('btnCloseSidebar');
+
+    function toggleSidebar() {
+      sidebar.classList.toggle('collapsed');
+      setTimeout(function() {
+        if (editor) editor.refresh();
+        if (secondaryEditor) secondaryEditor.refresh();
+      }, 220);
+    }
+    btnToggleSidebar.onclick = toggleSidebar;
+    btnCloseSidebar.onclick = toggleSidebar;
+
+    // Theme Toggle
+    document.getElementById('btnThemeToggle').onclick = function() {
+      const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+      const next = cur === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('npp_theme', next);
+      showToast('Switched to ' + next + ' theme');
+    };
+
+    // TextFX Dropdown & Macro Buttons
+    const btnTextFx = document.getElementById('btnTextFxMenu');
+    const textFxDropdown = document.getElementById('textFxDropdown');
+    btnTextFx.onclick = function(e) {
+      e.stopPropagation();
+      textFxDropdown.classList.toggle('show');
+    };
+    window.addEventListener('click', function() {
+      textFxDropdown.classList.remove('show');
+    });
+
+    textFxDropdown.querySelectorAll('.dropdown-item').forEach(function(item) {
+      item.onclick = function() {
+        runTextFxAction(item.dataset.action);
+      };
+    });
+
+    document.getElementById('btnFormatJsonFast').onclick = function() { runTextFxAction('format-json'); };
+    document.getElementById('btnRemoveDuplicatesFast').onclick = function() { runTextFxAction('remove-duplicates'); };
+    document.getElementById('btnMacroRecord').onclick = toggleMacroRecording;
+    document.getElementById('btnMacroPlay').onclick = playMacro;
+
+    document.getElementById('btnUndo').onclick = function() { if (editor) editor.undo(); };
+    document.getElementById('btnRedo').onclick = function() { if (editor) editor.redo(); };
+    document.getElementById('btnToggleWrap').onclick = toggleWordWrap;
+    document.getElementById('btnComment').onclick = function() { if (editor) editor.toggleComment(); };
+
+    // Zoom Handlers
+    document.getElementById('btnZoomIn').onclick = function() {
+      currentZoom = Math.min(2.0, currentZoom + 0.1);
+      applyZoom();
+    };
+    document.getElementById('btnZoomOut').onclick = function() {
+      currentZoom = Math.max(0.7, currentZoom - 0.1);
+      applyZoom();
+    };
+    function applyZoom() {
+      const size = Math.round(13.5 * currentZoom);
+      document.querySelectorAll('.CodeMirror').forEach(function(cmEl) {
+        cmEl.style.fontSize = size + 'px';
+      });
+      document.getElementById('zoomLevelText').textContent = Math.round(currentZoom * 100) + '%';
+      editor.refresh();
+      if (secondaryEditor) secondaryEditor.refresh();
+    }
+
+    // Find & Replace
+    document.getElementById('btnToggleFind').onclick = function() { openFindDialog(false); };
+    document.getElementById('frClose').onclick = closeFindDialog;
+    document.getElementById('frFindNext').onclick = function() { findNext(false); };
+    document.getElementById('frFindPrev').onclick = function() { findNext(true); };
+    document.getElementById('frReplace').onclick = replaceMatch;
+    document.getElementById('frReplaceAll').onclick = replaceAllMatches;
+
+    document.getElementById('frFindInput').oninput = updateSearchResults;
+    document.getElementById('frFindInput').onkeydown = function(e) {
+      if (e.key === 'Enter') {
+        findNext(e.shiftKey);
+      } else if (e.key === 'Escape') {
+        closeFindDialog();
+      }
+    };
+    document.getElementById('frReplaceInput').onkeydown = function(e) {
+      if (e.key === 'Enter') replaceMatch();
+      else if (e.key === 'Escape') closeFindDialog();
+    };
+
+    ['frCaseBtn', 'frWordBtn', 'frExtBtn', 'frRegexBtn'].forEach(function(id) {
+      document.getElementById(id).onclick = function() {
+        this.classList.toggle('active');
+        updateSearchResults();
+      };
+    });
+
+    // Fix 6: Go to Line modal with Enter & Escape keyboard bindings
+    document.getElementById('btnGotoLine').onclick = openGotoLineModal;
+    document.getElementById('statusPos').onclick = openGotoLineModal;
+    document.getElementById('btnCancelGoto').onclick = function() {
+      document.getElementById('gotoLineModal').classList.remove('show');
+      editor.focus();
+    };
+    document.getElementById('btnConfirmGoto').onclick = function() {
+      const lineNum = parseInt(document.getElementById('gotoLineInput').value, 10);
+      if (!isNaN(lineNum) && lineNum >= 1) {
+        editor.setCursor({ line: lineNum - 1, ch: 0 });
+        editor.focus();
+        editor.scrollIntoView({ line: lineNum - 1, ch: 0 }, 100);
+      }
+      document.getElementById('gotoLineModal').classList.remove('show');
+    };
+    document.getElementById('gotoLineInput').onkeydown = function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('btnConfirmGoto').click();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        document.getElementById('btnCancelGoto').click();
+      }
+    };
+
+    // Language selector
+    document.getElementById('languageSelect').onchange = function(e) {
+      const tab = getActiveTab();
+      if (!tab) return;
+      tab.mode = e.target.value;
+      editor.setOption('mode', resolveCodeMirrorMode(tab.mode));
+      renderTabs();
+      renderSidebarFiles();
+      updateOutline();
+      scheduleSave();
+    };
+
+    // Line Endings toggle
+    const statusLineEndingsEl = document.getElementById('statusLineEndings');
+    statusLineEndingsEl.textContent = lineEnding;
+    statusLineEndingsEl.onclick = function() {
+      lineEnding = lineEnding === 'CRLF' ? 'LF' : 'CRLF';
+      this.textContent = lineEnding;
+      scheduleSave();
+      showToast('Line endings switched to ' + lineEnding);
+    };
+
+    // Tab Size toggle
+    const statusTabSizeEl = document.getElementById('statusTabSize');
+    statusTabSizeEl.textContent = 'Spaces: ' + tabSize;
+    statusTabSizeEl.onclick = function() {
+      tabSize = tabSize === 2 ? 4 : (tabSize === 4 ? 8 : 2);
+      editor.setOption('tabSize', tabSize);
+      editor.setOption('indentUnit', tabSize);
+      this.textContent = 'Spaces: ' + tabSize;
+      scheduleSave();
+      showToast('Indentation set to ' + tabSize + ' spaces');
+    };
+
+    // Error Log Drawer bindings
+    document.getElementById('statusErrorIndicator').onclick = function() { toggleErrorLog(); };
+    document.getElementById('btnClearErrorLog').onclick = function() { clearErrorLog(); };
+    document.getElementById('btnCloseErrorLog').onclick = function() { toggleErrorLog(false); };
+
+    // Global Error Interceptors
+    window.addEventListener('error', function(e) {
+      if (e && e.message) {
+        logError('System', e.message, e.filename ? e.filename + ':' + e.lineno : '');
+      }
+    });
+    window.addEventListener('unhandledrejection', function(e) {
+      const reason = e.reason;
+      const msg = reason && reason.message ? reason.message : String(reason);
+      logError('System', 'Unhandled Promise: ' + msg, '');
+    });
+
+    // Global Keyboard Shortcuts
+    document.addEventListener('keydown', function(e) {
+      const ctrl = e.ctrlKey || e.metaKey;
+      if (ctrl && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        toggleSidebar();
+      } else if (e.key === 'Escape') {
+        document.getElementById('gotoLineModal').classList.remove('show');
+        toggleErrorLog(false);
+      }
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // Application Bootstrap
+  // --------------------------------------------------------------------------
+  const savedTheme = localStorage.getItem('npp_theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+
+  loadState();
+  initEditor();
+  setupEvents();
+  renderErrorLogUI();
+
+  if (wordWrap) {
+    editor.setOption('lineWrapping', true);
+    document.getElementById('btnToggleWrap').classList.add('active');
+  }
+
+  selectTab(activeTabId || tabs[0].id);
+
+})();
+</script>
+</body>
+</html>
