@@ -3049,61 +3049,183 @@
     saveTimer = setTimeout(persistState, 800);
   }
 
+  let storageWarningShown = false;
+
+  function buildWorkspaceData() {
+    return {
+      activeTabId: activeTabId,
+      wordWrap: wordWrap,
+      tabSize: tabSize,
+      lineEnding: lineEnding,
+      macroActions: macroActions,
+      tabs: tabs.map(function(t) {
+        return {
+          id: t.id,
+          name: t.name,
+          content: t.content,
+          savedContent: t.savedContent,
+          mode: t.mode,
+          dirty: t.dirty,
+          bookmarks: Array.isArray(t.bookmarks) ? t.bookmarks : []
+        };
+      }),
+      showSymbolsActive: showSymbolsActive,
+      rulerMode: rulerMode
+    };
+  }
+
   function persistState() {
     try {
-      const data = {
-        activeTabId: activeTabId,
-        wordWrap: wordWrap,
-        tabSize: tabSize,
-        lineEnding: lineEnding,
-        macroActions: macroActions,
-        tabs: tabs.map(function(t) {
-          return {
-            id: t.id,
-            name: t.name,
-            content: t.content,
-            savedContent: t.savedContent,
-            mode: t.mode,
-            dirty: t.dirty,
-            bookmarks: Array.isArray(t.bookmarks) ? t.bookmarks : []
-          };
-        }),
-        showSymbolsActive: showSymbolsActive,
-        rulerMode: rulerMode
-      };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(buildWorkspaceData()));
+      storageWarningShown = false;
     } catch (e) {
       logError('Storage', 'Failed to persist workspace state: ' + e.message, '');
-      showToast('Storage quota warning: ' + e.message);
+      if (!storageWarningShown) {
+        storageWarningShown = true;
+        showToast('Storage warning: browser could not save the workspace. Use Download Workspace Backup (Command Palette) to keep a copy.');
+      }
     }
   }
 
-  function loadState() {
+  // Phase 1 / P03 recovery action: export the live workspace when localStorage fails
+  function downloadWorkspaceBackup() {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed.tabs && parsed.tabs.length) {
-          tabs = parsed.tabs;
+      triggerTextDownload('notepad-studio-workspace-backup.json', JSON.stringify(buildWorkspaceData(), null, 2), 'application/json');
+      showToast('Workspace backup download started');
+    } catch (err) {
+      logError('Storage', 'Workspace backup download failed: ' + (err.message || err), '');
+      showToast('Workspace backup download failed');
+    }
+  }
+
+  const RECOVERY_KEY = STORAGE_KEY + '_recovery';
+  const PERSISTED_MODES = ['text', 'javascript', 'json', 'python', 'htmlmixed', 'xml', 'css', 'markdown', 'yaml', 'sql', 'text/x-csrc', 'shell'];
+
+  // Phase 1 / P16: coerce persisted values without inventing or discarding data
+  function coercePersistedString(value) {
+    if (value == null) return '';
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+    return '';
+  }
+
+  function sanitizePersistedTab(rawTab, usedIds) {
+    if (!rawTab || typeof rawTab !== 'object' || Array.isArray(rawTab)) return null;
+    let repaired = false;
+
+    let id = rawTab.id;
+    if (typeof id !== 'string' || !id || usedIds.has(id)) {
+      id = uid();
+      repaired = true;
+    }
+    let name = rawTab.name;
+    if (typeof name !== 'string' || !name.trim()) {
+      name = 'untitled.txt';
+      repaired = true;
+    }
+    const content = coercePersistedString(rawTab.content);
+    const savedContent = coercePersistedString(rawTab.savedContent);
+    if (content !== rawTab.content || savedContent !== rawTab.savedContent) repaired = true;
+
+    let mode = rawTab.mode;
+    if (typeof mode !== 'string' || PERSISTED_MODES.indexOf(mode) === -1) {
+      mode = detectMode(name);
+      repaired = true;
+    }
+
+    const bookmarkLines = [];
+    if (Array.isArray(rawTab.bookmarks)) {
+      rawTab.bookmarks.forEach(function(b) {
+        const line = Math.floor(Number(b));
+        if (Number.isFinite(line) && line >= 0) bookmarkLines.push(line);
+      });
+      if (bookmarkLines.length !== rawTab.bookmarks.length) repaired = true;
+    } else if (rawTab.bookmarks != null) {
+      repaired = true;
+    }
+
+    const tab = createTab(name, content, mode);
+    tab.id = id;
+    tab.savedContent = savedContent;
+    tab.dirty = content !== savedContent;
+    tab.bookmarks = bookmarkLines;
+    return { tab: tab, repaired: repaired };
+  }
+
+  // Phase 1 / P03: keep the unusable payload recoverable before any autosave overwrites it
+  function preserveRecoveryPayload(raw) {
+    try {
+      localStorage.setItem(RECOVERY_KEY, raw);
+    } catch (e) {}
+  }
+
+  function loadState() {
+    let raw = null;
+    try { raw = localStorage.getItem(STORAGE_KEY); } catch (e) { raw = null; }
+
+    if (raw) {
+      let parsed = null;
+      try { parsed = JSON.parse(raw); } catch (e) { parsed = null; }
+
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && Array.isArray(parsed.tabs) && parsed.tabs.length) {
+        const usedIds = new Set();
+        const sanitizedTabs = [];
+        let repairedSomething = false;
+        parsed.tabs.forEach(function(rawTab) {
+          const result = sanitizePersistedTab(rawTab, usedIds);
+          if (result) {
+            usedIds.add(result.tab.id);
+            sanitizedTabs.push(result.tab);
+            if (result.repaired) repairedSomething = true;
+          }
+        });
+
+        if (sanitizedTabs.length) {
+          tabs = sanitizedTabs;
           wordWrap = !!parsed.wordWrap;
-          tabSize = parsed.tabSize || 2;
-          lineEnding = parsed.lineEnding || 'CRLF';
-          macroActions = Array.isArray(parsed.macroActions) ? parsed.macroActions : [];
+          tabSize = [2, 4, 8].indexOf(parsed.tabSize) !== -1 ? parsed.tabSize : 2;
+          lineEnding = parsed.lineEnding === 'LF' ? 'LF' : 'CRLF';
+          macroActions = Array.isArray(parsed.macroActions)
+            ? parsed.macroActions.filter(function(a) { return typeof a === 'string'; })
+            : [];
           showSymbolsActive = !!parsed.showSymbolsActive;
           rulerMode = parsed.rulerMode === 1 || parsed.rulerMode === 2 ? parsed.rulerMode : 0;
-          tabs.forEach(function(t) {
-            if (!Array.isArray(t.bookmarks)) t.bookmarks = [];
-          });
-          activeTabId = parsed.activeTabId || tabs[0].id;
+          activeTabId = typeof parsed.activeTabId === 'string' && usedIds.has(parsed.activeTabId)
+            ? parsed.activeTabId
+            : tabs[0].id;
+
+          if (repairedSomething) {
+            preserveRecoveryPayload(raw);
+            logError('Storage', 'Saved workspace contained invalid entries; they were repaired. A backup of the original state was kept.', raw.slice(0, 100));
+            showToast('Workspace state was repaired; original backup stored in recovery key.');
+          }
           return;
         }
+
+        preserveRecoveryPayload(raw);
+        logError('Storage', 'Saved workspace contained no usable documents. Starter tabs were restored and the original data was preserved for recovery.', raw.slice(0, 100));
+        showToast('Saved workspace could not be loaded; original data preserved as workspace-recovery.json tab.');
+      } else if (parsed === null) {
+        preserveRecoveryPayload(raw);
+        logError('Storage', 'Saved workspace data is corrupt and could not be parsed. Starter tabs were restored and the original data was preserved for recovery.', raw.slice(0, 100));
+        showToast('Saved workspace is unreadable; original data preserved as workspace-recovery.json tab.');
+      } else {
+        preserveRecoveryPayload(raw);
+        logError('Storage', 'Saved data is not a valid workspace state. Starter tabs were restored and the original data was preserved for recovery.', raw.slice(0, 100));
+        showToast('Saved data is not a valid workspace; original data preserved as workspace-recovery.json tab.');
       }
-    } catch (e) {}
+    }
 
     tabs = getStarterTabsData().map(function(st) {
       return createTab(st.name, st.content, st.mode);
     });
     activeTabId = tabs[0].id;
+
+    if (raw) {
+      // P03: surface the unusable payload as an editable, savable tab instead of discarding it
+      const recoveryTab = createTab('workspace-recovery.json', raw, 'json');
+      tabs.push(recoveryTab);
+    }
   }
 
   function getStarterTabsData() {
@@ -3239,34 +3361,42 @@ function calculateChecksum(payload) {
     showToast('Exported Unified Diff: ' + diffFilename);
   }
 
-  // Fix 5: Normalize CRLF vs LF line endings on file save
-  function saveActiveFile() {
-    const tab = getActiveTab();
-    if (!tab || !editor) return;
+  // Phase 1 / P11: one explicit line-ending policy for every save path
+  function normalizeLineEndingsForSave(text) {
+    if (lineEnding === 'CRLF') return text.replace(/\r?\n/g, '\r\n');
+    return text.replace(/\r\n/g, '\n');
+  }
 
-    tab.savedContent = editor.getValue();
-    tab.dirty = false;
-    updateSaveIndicator(false);
-    renderTabs();
-    renderSidebarFiles();
-    persistState();
-
-    const normalizedContent = lineEnding === 'CRLF'
-      ? tab.savedContent.replace(/\r?\n/g, '\r\n')
-      : tab.savedContent.replace(/\r\n/g, '\n');
-
-    const blob = new Blob([normalizedContent], { type: 'text/plain;charset=utf-8' });
+  function triggerTextDownload(filename, text, mime) {
+    const blob = new Blob([text], { type: (mime || 'text/plain') + ';charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = tab.name;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  }
 
-    showToast('Saved & downloaded ' + tab.name + ' (' + lineEnding + ')');
-    document.title = tab.name + ' - Notepad++ Studio';
+  // Fix 5 / Phase 1 P01: the fallback path only *initiates* a browser download.
+  // It is not disk-write confirmation, so dirty state is deliberately unchanged.
+  function saveActiveFile() {
+    const tab = getActiveTab();
+    if (!tab || !editor) return;
+
+    tab.content = editor.getValue();
+    persistState();
+
+    try {
+      triggerTextDownload(tab.name, normalizeLineEndingsForSave(tab.content), 'text/plain');
+    } catch (err) {
+      logError('Save', 'Download could not be started for ' + tab.name + ': ' + (err.message || err), '');
+      showToast('Could not start download for ' + tab.name + '; document is still unsaved');
+      return;
+    }
+
+    showToast('Download started: ' + tab.name + ' (' + lineEnding + ') - confirm it in your browser downloads');
   }
 
   function handleFiles(fileList) {
@@ -3634,27 +3764,44 @@ function calculateChecksum(payload) {
     }
   }
 
+  // Phase 1 / P02: recompute UI from the *active* tab after an async save
+  function refreshWorkspaceUI() {
+    const tab = getActiveTab();
+    if (!tab) return;
+    updateSaveIndicator(tab.dirty);
+    renderTabs();
+    renderSidebarFiles();
+    document.title = (tab.dirty ? '• ' : '') + tab.name + ' - Notepad++ Studio';
+  }
+
+  // Phase 1 / P02: complete a native write against the original tab, comparing
+  // live text to the written snapshot so edits made during I/O keep dirty=true
+  function completeNativeSave(tab, writtenText) {
+    tab.savedContent = writtenText;
+    const currentText = (tab.id === activeTabId && editor) ? editor.getValue() : (tab.content || '');
+    tab.dirty = currentText !== writtenText;
+    persistState();
+    refreshWorkspaceUI();
+  }
+
   async function saveFileNativeOrFallback(forceSaveAs) {
     const tab = getActiveTab();
     if (!tab || !editor) return;
+    // P02: immutable snapshot before entering async I/O; resolves against this tab
+    const contentSnapshot = editor.getValue();
 
     if (!forceSaveAs && fileHandles.has(tab.id)) {
       const handle = fileHandles.get(tab.id);
       try {
-        const content = editor.getValue();
+        const payload = normalizeLineEndingsForSave(contentSnapshot);
         const writable = await handle.createWritable();
-        await writable.write(content);
+        await writable.write(payload);
         await writable.close();
-        tab.savedContent = content;
-        tab.dirty = false;
-        updateSaveIndicator(false);
-        renderTabs();
-        renderSidebarFiles();
-        persistState();
-        document.title = tab.name + ' - Notepad++ Studio';
+        completeNativeSave(tab, contentSnapshot);
         showToast('Saved directly to disk: ' + handle.name);
       } catch (err) {
         if (err && err.name === 'AbortError') return;
+        logError('Save', 'Native disk write failed for ' + tab.name + ': ' + (err.message || err), '');
         showToast('Disk write failed, falling back to download');
         saveActiveFile();
       }
@@ -3662,23 +3809,27 @@ function calculateChecksum(payload) {
     }
 
     if (forceSaveAs && ('showSaveFilePicker' in window)) {
+      let handle;
       try {
-        const handle = await window.showSaveFilePicker({ suggestedName: tab.name });
-        const content = editor.getValue();
+        handle = await window.showSaveFilePicker({ suggestedName: tab.name });
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
+        showToast('Save As could not start, falling back to download');
+        saveActiveFile();
+        return;
+      }
+      try {
+        const payload = normalizeLineEndingsForSave(contentSnapshot);
         const writable = await handle.createWritable();
-        await writable.write(content);
+        await writable.write(payload);
         await writable.close();
         fileHandles.set(tab.id, handle);
         renameTab(tab.id, handle.name);
-        tab.savedContent = content;
-        tab.dirty = false;
-        updateSaveIndicator(false);
-        renderTabs();
-        renderSidebarFiles();
-        persistState();
+        completeNativeSave(tab, contentSnapshot);
         showToast('Saved directly to disk: ' + handle.name);
       } catch (err) {
         if (err && err.name === 'AbortError') return;
+        logError('Save', 'Native Save As failed for ' + tab.name + ': ' + (err.message || err), '');
         showToast('Save As failed, falling back to download');
         saveActiveFile();
       }
@@ -3765,6 +3916,7 @@ function calculateChecksum(payload) {
     { title: 'Open File', category: 'File', shortcut: 'Ctrl+O', action: function() { openFileNativeOrFallback(); } },
     { title: 'Save File', category: 'File', shortcut: 'Ctrl+S', action: function() { saveFileNativeOrFallback(false); } },
     { title: 'Save File As...', category: 'File', shortcut: 'Ctrl+Shift+S', action: function() { saveFileNativeOrFallback(true); } },
+    { title: 'Download Workspace Backup', category: 'File', action: function() { downloadWorkspaceBackup(); } },
     { title: 'Toggle Split View', category: 'View', action: function() { document.getElementById('btnToggleSplit').click(); } },
     { title: 'Compare Diff', category: 'View', action: function() { toggleCompareDiff(); } },
     { title: 'Export Unified Diff (.diff)', category: 'View', action: function() { exportDiffFile(); } },
