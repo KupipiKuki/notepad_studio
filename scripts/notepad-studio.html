@@ -1869,6 +1869,8 @@
       updateStatusMetrics();
       scheduleOutlineUpdate();
       scheduleSave();
+      // Phase 1 / P09: keep an open split pane showing this same tab in sync
+      syncSplitViewIfSameTab();
     });
 
     // Stage 2: live diff refresh (debounced 250ms) while compare mode is active
@@ -2148,6 +2150,24 @@
     secondaryEditor.setOption('mode', resolveCodeMirrorMode(t.mode));
     isSwitchingTab = false;
     requestAnimationFrame(function() { secondaryEditor.refresh(); });
+  }
+
+  // Phase 1 / P09: with the same tab on both panes, primary edits must reach
+  // the secondary editor. A stale secondary value would otherwise be written
+  // back over the tab (and the primary editor) by the next split edit,
+  // silently discarding the primary edits.
+  function syncSplitViewIfSameTab() {
+    const pane = document.getElementById('secondaryPane');
+    if (!secondaryEditor || !pane || !pane.classList.contains('open')) return;
+    const splitId = document.getElementById('splitTabSelect').value;
+    if (splitId !== activeTabId) return;
+    const tab = getActiveTab();
+    if (!tab || secondaryEditor.getValue() === tab.content) return;
+    const cur = secondaryEditor.getCursor();
+    isSwitchingTab = true;
+    secondaryEditor.setValue(tab.content);
+    secondaryEditor.setCursor(cur);
+    isSwitchingTab = false;
   }
 
   // --------------------------------------------------------------------------
@@ -3508,13 +3528,83 @@ function calculateChecksum(payload) {
     showToast('Download started: ' + tab.name + ' (' + lineEnding + ') - confirm it in your browser downloads');
   }
 
+  // Phase 1 / P17: honest open policy — bounded size, verified decodes,
+  // byte-order-mark fidelity and explicit warnings instead of silent
+  // replacement. The default read is UTF-8 (the save path is UTF-8), but a
+  // decode that actually loses bytes must tell the user so.
+  const MAX_OPEN_BYTES = 2 * 1024 * 1024;
+
+  function decodeFileBuffer(buffer) {
+    const bytes = new Uint8Array(buffer);
+    const warnings = [];
+    const infos = [];
+    let text = '';
+
+    if (bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xFE) {
+      text = new TextDecoder('utf-16le').decode(bytes.subarray(2));
+      infos.push('File decoded as UTF-16LE (byte-order mark detected); saved files are UTF-8.');
+    } else if (bytes.length >= 2 && bytes[0] === 0xFE && bytes[1] === 0xFF) {
+      text = new TextDecoder('utf-16be').decode(bytes.subarray(2));
+      infos.push('File decoded as UTF-16BE (byte-order mark detected); saved files are UTF-8.');
+    } else if (bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) {
+      // Keep the BOM as part of the document so saves reproduce the original
+      // byte prefix instead of silently dropping it on read.
+      text = '\uFEFF' + new TextDecoder('utf-8').decode(bytes.subarray(3));
+      infos.push('UTF-8 byte-order mark detected; it is preserved in the document and in saves.');
+    } else {
+      try {
+        text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+      } catch (e) {
+        text = new TextDecoder('utf-8').decode(bytes);
+        warnings.push('File contained bytes that are not valid UTF-8; they are shown as U+FFFD and re-saving will not reproduce the original bytes.');
+      }
+    }
+
+    // Binary heuristic: control characters (tab/newline excepted) dominating
+    // the content, or a high density of decode placeholders, means "binary";
+    // the user must know editing it as text is lossy. Sparse placeholders (a
+    // few undecodable bytes in a text file) stay a decode warning, not a
+    // binary classification.
+    let control = 0;
+    let placeholders = 0;
+    let counted = 0;
+    for (let i = 0; i < text.length; i++) {
+      const c = text.charCodeAt(i);
+      if (c === 9 || c === 10 || c === 13 || c === 0xFEFF) continue;
+      counted++;
+      if (c < 32 || c === 0x7F) control++;
+      if (c === 0xFFFD) placeholders++;
+    }
+    if (counted > 0 && (control / counted > 0.10 || placeholders / counted > 0.30)) {
+      warnings.push('File appears to be binary (control/undecodable characters dominate); editing it as text may corrupt it.');
+    }
+
+    return { text: text, warnings: warnings, infos: infos };
+  }
+
   function handleFiles(fileList) {
     Array.from(fileList).forEach(function(file) {
+      if (file.size > MAX_OPEN_BYTES) {
+        logError('Open', 'File not opened: ' + file.name + ' is ' + file.size + ' bytes, over the ' + MAX_OPEN_BYTES + '-byte open limit. Split the file externally before opening it here.', '');
+        showToast('Not opening ' + file.name + ': larger than the 2 MB open limit.');
+        return;
+      }
       const reader = new FileReader();
       reader.onload = function(e) {
-        createNewTab(file.name, e.target.result);
+        const decoded = decodeFileBuffer(e.target.result);
+        createNewTab(file.name, decoded.text);
+        // createNewTab toasts "Created …"; show the policy notice last so the
+        // most important message stays visible.
+        decoded.infos.forEach(function(msg) {
+          logError('Open', msg, file.name);
+          showToast(msg);
+        });
+        decoded.warnings.forEach(function(msg) {
+          logError('Open', msg, file.name);
+          showToast(msg);
+        });
       };
-      reader.readAsText(file);
+      reader.readAsArrayBuffer(file);
     });
   }
 
