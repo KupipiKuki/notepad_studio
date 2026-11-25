@@ -1,9 +1,9 @@
 name: Playwright Tests
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, wp/phase1 ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main, master, wp/phase1 ]
 jobs:
   test:
     timeout-minutes: 60
@@ -15,10 +15,15 @@ jobs:
         node-version: lts/*
     - name: Install dependencies
       run: npm ci
+    # R04: install only the validated browser matrix (the committed spec is
+    # scoped to chromium + firefox; webkit is not claimed as covered).
     - name: Install Playwright Browsers
-      run: npx playwright install --with-deps
+      run: npx playwright install --with-deps chromium firefox
+    # R04: run the committed remediation suite, not the upstream example spec
+    # (which depends on external network sites). The spec resolves the app
+    # file relative to the repository, so this is runnable on ubuntu-latest.
     - name: Run Playwright tests
-      run: npx playwright test
+      run: npx playwright test tests/phase1-save-recovery.spec.js --project=chromium --project=firefox
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
       with:

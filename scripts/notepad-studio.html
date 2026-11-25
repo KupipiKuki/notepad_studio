@@ -3074,7 +3074,25 @@
     };
   }
 
+  // R02: while the original raw payload has no verified retained copy
+  // (recovery key or recovery tab), persistState must not replace it.
+  let recoveryGuardRaw = null;
+  let recoveryBlockedWarningShown = false;
+
   function persistState() {
+    if (recoveryGuardRaw !== null && !isRecoveryPayloadRetained(recoveryGuardRaw)) {
+      // Last chance to retain the original outside the workspace key
+      if (preserveRecoveryPayload(recoveryGuardRaw)) {
+        recoveryGuardRaw = null;
+      } else {
+        logError('Storage', 'Workspace autosave blocked: the original saved state could not be backed up. Keep the workspace-recovery.json tab (or use Download Workspace Backup) before closing it.', '');
+        if (!recoveryBlockedWarningShown) {
+          recoveryBlockedWarningShown = true;
+          showToast('Autosave blocked: the original data would be lost. Keep or export the workspace-recovery.json tab.');
+        }
+        return;
+      }
+    }
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(buildWorkspaceData()));
       storageWarningShown = false;
@@ -3152,11 +3170,35 @@
     return { tab: tab, repaired: repaired };
   }
 
-  // Phase 1 / P03: keep the unusable payload recoverable before any autosave overwrites it
+  // Phase 1 / P03: keep the unusable payload recoverable before any autosave overwrites it.
+  // R02: callers must know whether a retained copy actually exists — a failed
+  // backup write is reported, never swallowed as success.
   function preserveRecoveryPayload(raw) {
     try {
       localStorage.setItem(RECOVERY_KEY, raw);
+      return true;
+    } catch (e) {
+      logError('Storage', 'Recovery backup could not be stored by the browser: ' + ((e && e.message) ? e.message : e), '');
+      return false;
+    }
+  }
+
+  // R02: a retained copy exists when the recovery key holds the exact raw
+  // payload, or an open tab still carries it verbatim.
+  function isRecoveryPayloadRetained(raw) {
+    try {
+      if (localStorage.getItem(RECOVERY_KEY) === raw) return true;
     } catch (e) {}
+    return tabs.some(function(t) { return t && t.content === raw; });
+  }
+
+  // R02: recovery route of last resort — the raw payload stays visible and
+  // exportable inside the workspace itself.
+  function pushRecoveryTab(raw) {
+    const exists = tabs.some(function(t) {
+      return t.name === 'workspace-recovery.json' && t.content === raw;
+    });
+    if (!exists) tabs.push(createTab('workspace-recovery.json', raw, 'json'));
   }
 
   function loadState() {
@@ -3177,6 +3219,9 @@
             usedIds.add(result.tab.id);
             sanitizedTabs.push(result.tab);
             if (result.repaired) repairedSomething = true;
+          } else {
+            // R01: a dropped entry is destructive normalization — it is a repair
+            repairedSomething = true;
           }
         });
 
@@ -3195,22 +3240,32 @@
             : tabs[0].id;
 
           if (repairedSomething) {
-            preserveRecoveryPayload(raw);
-            logError('Storage', 'Saved workspace contained invalid entries; they were repaired. A backup of the original state was kept.', raw.slice(0, 100));
-            showToast('Workspace state was repaired; original backup stored in recovery key.');
+            // R02: only claim a retained backup when the recovery key write
+            // verifiably succeeded; otherwise keep the raw payload inside the
+            // workspace and guard it from replacement autosave.
+            if (preserveRecoveryPayload(raw)) {
+              logError('Storage', 'Saved workspace contained invalid entries; they were repaired. A backup of the original state was kept.', raw.slice(0, 100));
+              showToast('Workspace state was repaired; original backup stored in recovery key.');
+            } else {
+              recoveryGuardRaw = raw;
+              pushRecoveryTab(raw);
+              logError('Storage', 'Saved workspace contained invalid entries; they were repaired, but the browser refused the recovery-key backup. The original data is kept in the workspace-recovery.json tab — do not close it without exporting. Autosave is blocked while the original is not backed up.', raw.slice(0, 100));
+              showToast('Workspace repaired; recovery backup failed — original preserved as workspace-recovery.json tab.');
+            }
           }
           return;
         }
 
-        preserveRecoveryPayload(raw);
+        // R02: track failed key writes on every recovery path
+        if (!preserveRecoveryPayload(raw)) recoveryGuardRaw = raw;
         logError('Storage', 'Saved workspace contained no usable documents. Starter tabs were restored and the original data was preserved for recovery.', raw.slice(0, 100));
         showToast('Saved workspace could not be loaded; original data preserved as workspace-recovery.json tab.');
       } else if (parsed === null) {
-        preserveRecoveryPayload(raw);
+        if (!preserveRecoveryPayload(raw)) recoveryGuardRaw = raw;
         logError('Storage', 'Saved workspace data is corrupt and could not be parsed. Starter tabs were restored and the original data was preserved for recovery.', raw.slice(0, 100));
         showToast('Saved workspace is unreadable; original data preserved as workspace-recovery.json tab.');
       } else {
-        preserveRecoveryPayload(raw);
+        if (!preserveRecoveryPayload(raw)) recoveryGuardRaw = raw;
         logError('Storage', 'Saved data is not a valid workspace state. Starter tabs were restored and the original data was preserved for recovery.', raw.slice(0, 100));
         showToast('Saved data is not a valid workspace; original data preserved as workspace-recovery.json tab.');
       }
@@ -3223,8 +3278,7 @@
 
     if (raw) {
       // P03: surface the unusable payload as an editable, savable tab instead of discarding it
-      const recoveryTab = createTab('workspace-recovery.json', raw, 'json');
-      tabs.push(recoveryTab);
+      pushRecoveryTab(raw);
     }
   }
 
@@ -3381,15 +3435,27 @@ function calculateChecksum(payload) {
 
   // Fix 5 / Phase 1 P01: the fallback path only *initiates* a browser download.
   // It is not disk-write confirmation, so dirty state is deliberately unchanged.
-  function saveActiveFile() {
-    const tab = getActiveTab();
-    if (!tab || !editor) return;
+  // R03: failure fallbacks pass { tab, content } so the requested save's
+  // original document/bytes are downloaded — never the currently active tab.
+  function saveActiveFile(requested) {
+    const req = requested || {};
+    const tab = req.tab || getActiveTab();
+    if (!tab) return;
 
-    tab.content = editor.getValue();
-    persistState();
+    let content;
+    if (typeof req.content === 'string') {
+      // Frozen snapshot of the tab whose native save failed: do not touch the
+      // live editor or the (possibly switched) active tab's state.
+      content = req.content;
+    } else {
+      if (!editor) return;
+      tab.content = editor.getValue();
+      content = tab.content;
+      persistState();
+    }
 
     try {
-      triggerTextDownload(tab.name, normalizeLineEndingsForSave(tab.content), 'text/plain');
+      triggerTextDownload(tab.name, normalizeLineEndingsForSave(content), 'text/plain');
     } catch (err) {
       logError('Save', 'Download could not be started for ' + tab.name + ': ' + (err.message || err), '');
       showToast('Could not start download for ' + tab.name + '; document is still unsaved');
@@ -3803,7 +3869,8 @@ function calculateChecksum(payload) {
         if (err && err.name === 'AbortError') return;
         logError('Save', 'Native disk write failed for ' + tab.name + ': ' + (err.message || err), '');
         showToast('Disk write failed, falling back to download');
-        saveActiveFile();
+        // R03: download the requested save's snapshot, not the active tab
+        saveActiveFile({ tab: tab, content: contentSnapshot });
       }
       return;
     }
@@ -3815,7 +3882,8 @@ function calculateChecksum(payload) {
       } catch (err) {
         if (err && err.name === 'AbortError') return;
         showToast('Save As could not start, falling back to download');
-        saveActiveFile();
+        // R03: download the requested save's snapshot, not the active tab
+        saveActiveFile({ tab: tab, content: contentSnapshot });
         return;
       }
       try {
@@ -3831,7 +3899,8 @@ function calculateChecksum(payload) {
         if (err && err.name === 'AbortError') return;
         logError('Save', 'Native Save As failed for ' + tab.name + ': ' + (err.message || err), '');
         showToast('Save As failed, falling back to download');
-        saveActiveFile();
+        // R03: download the requested save's snapshot, not the active tab
+        saveActiveFile({ tab: tab, content: contentSnapshot });
       }
       return;
     }
