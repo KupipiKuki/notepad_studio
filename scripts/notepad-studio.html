@@ -3052,12 +3052,21 @@
   let storageWarningShown = false;
 
   function buildWorkspaceData() {
+    // R02-RL: while the recovery guard is armed, record durably which tab
+    // carries the last retained raw copy. On reload this metadata re-arms the
+    // guard, so recovery-pending protection survives a fresh page session.
+    let recoveryTabId = null;
+    if (recoveryGuardRaw !== null) {
+      const carrier = tabs.find(function(t) { return t && t.content === recoveryGuardRaw; });
+      if (carrier) recoveryTabId = carrier.id;
+    }
     return {
       activeTabId: activeTabId,
       wordWrap: wordWrap,
       tabSize: tabSize,
       lineEnding: lineEnding,
       macroActions: macroActions,
+      recoveryTabId: recoveryTabId,
       tabs: tabs.map(function(t) {
         return {
           id: t.id,
@@ -3076,6 +3085,10 @@
 
   // R02: while the original raw payload has no verified retained copy
   // (recovery key or recovery tab), persistState must not replace it.
+  // R02-RL: the in-memory flag alone is re-armed after every reload from the
+  // durable recoveryTabId metadata in the persisted workspace, so the
+  // protection holds across page sessions while the recovery tab is the only
+  // retained copy of the original.
   let recoveryGuardRaw = null;
   let recoveryBlockedWarningShown = false;
 
@@ -3201,6 +3214,30 @@
     if (!exists) tabs.push(createTab('workspace-recovery.json', raw, 'json'));
   }
 
+  // R02-RL: reconstruct recovery-pending protection from the persisted
+  // workspace. When the guard was armed, buildWorkspaceData recorded which
+  // tab carried the last retained raw copy; a fresh page session must re-arm
+  // the guard from that durable metadata unless the recovery key verifiably
+  // holds the same payload. A session-only flag is insufficient: a previously
+  // persisted workspace containing a valid recovery tab loads without repair,
+  // so without this reconstruction a reload would drop the protection.
+  function restoreRecoveryGuardAfterReload(parsed) {
+    let pending = null;
+    if (typeof parsed.recoveryTabId === 'string') {
+      pending = tabs.find(function(t) { return t && t.id === parsed.recoveryTabId; }) || null;
+    }
+    if (!pending) {
+      // Durable metadata absent (e.g. persisted by an older flow): the
+      // workspace-recovery.json tab is the recovery route of last resort.
+      pending = tabs.find(function(t) { return t && t.name === 'workspace-recovery.json'; }) || null;
+    }
+    if (!pending || typeof pending.content !== 'string') return;
+    try {
+      if (localStorage.getItem(RECOVERY_KEY) === pending.content) return; // backup verifiably retained
+    } catch (e) { /* unreadable key: treat the copy as not retained */ }
+    recoveryGuardRaw = pending.content;
+  }
+
   function loadState() {
     let raw = null;
     try { raw = localStorage.getItem(STORAGE_KEY); } catch (e) { raw = null; }
@@ -3252,6 +3289,12 @@
               logError('Storage', 'Saved workspace contained invalid entries; they were repaired, but the browser refused the recovery-key backup. The original data is kept in the workspace-recovery.json tab — do not close it without exporting. Autosave is blocked while the original is not backed up.', raw.slice(0, 100));
               showToast('Workspace repaired; recovery backup failed — original preserved as workspace-recovery.json tab.');
             }
+          } else {
+            // R02-RL: a clean load never repair-arms the in-memory guard, so
+            // recovery-pending protection must be reconstructed from the
+            // durable workspace metadata (or fall back to a persisted
+            // workspace-recovery.json tab) whenever no backup is retained.
+            restoreRecoveryGuardAfterReload(parsed);
           }
           return;
         }

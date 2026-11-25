@@ -66,3 +66,35 @@ Windows 11, Node v24.20.0, Playwright 1.65.1 (npm ci from committed `package-loc
 | `tests/phase1-save-recovery.spec.js` | R04 portable app resolution; R01, R02×2, R03×2 regressions; committed scenarios unchanged |
 | `.github/workflows/playwright.yml` | R04: `wp/phase1` triggers; chromium+firefox scoped install/run of the remediation spec |
 | `docs/remediation/Notepad_Studio_wp_phase1_Correction_Record.md` | This record |
+
+## 6. R02-RL remediation batch (re-audit follow-up)
+
+Remediation date: November 26, 2026 (America/New_York). Trigger: `docs/audit/Notepad_Studio_wp_phase1_Reaudit.md` (decision: HOLD bounded batch acceptance on the remaining P0 recovery-lifecycle gap R02-RL). This addendum records the second correction cycle only; sections 1–5 above remain the historical record of the first batch.
+
+### The finding
+
+`recoveryGuardRaw` was a session-only flag. A persisted workspace whose recovery tab was structurally valid loaded without repair, so after an unseeded reload the guard was `null`; closing the clean `workspace-recovery.json` tab and editing allowed the replacement autosave to overwrite the only retained raw copy while the recovery-key backup did not exist. The committed reload regression reseeded the original fixture on every navigation via `context.addInitScript`, so it exercised initial recovery again instead of the persisted workspace.
+
+### Correction in `scripts/notepad-studio.html`
+
+- `buildWorkspaceData` now records durable metadata `recoveryTabId`: the id of the tab carrying the guarded raw payload, present only while the guard is armed. It is persisted with the very workspace it protects (such a persist by definition retains the payload inside the recovery tab).
+- `restoreRecoveryGuardAfterReload(parsed)` reconstructs the guard on a clean load (`repairedSomething === false`): it resolves the carrier tab from the persisted `recoveryTabId` (falling back to a persisted `workspace-recovery.json` tab for workspaces written before this batch) and re-arms `recoveryGuardRaw` from that tab's content unless the recovery key verifiably holds the same payload. A load that itself repairs arms the guard through the existing R02 path instead.
+- Consequently: after a reload, closing/editing the last retained raw copy leaves the recovery key retry + blocked-autosave protection in force across sessions (blocked autosave leaves the original-containing workspace key intact, with the existing toast/log feedback). When the recovery key holds the backup, no guard is armed and ordinary close/autosave proceeds. The blocked-autosave semantics are unchanged in-session.
+
+### Correction in `tests/phase1-save-recovery.spec.js`
+
+- Seeding is now once per isolated context: the init script seeds only when the workspace key is absent, so `page.reload` reopens the bytes the app actually persisted. The genuine-quota reload step of the R02 regression now tests a true cross-session reopen. The `Storage.setItem` denial patch continues to run on every navigation (fresh `Storage.prototype` per document); only the fixture write is gated.
+- New regression `R02-RL: recovery protection survives an unseeded reload when recovery writes are denied`: denied recovery-key writes → repair → first-session autosave embedding the raw payload → unseeded reload → reopen recovery tab → close last recovery tab → edit/autosave → asserts the destructive autosave is blocked with the "Autosave blocked" toast and error log, and the workspace key is left byte-identical, still containing the original marker.
+- New control `R02-RL control: retained recovery-key backup does not block close/autosave across reload`: corrupt raw whose recovery-key write succeeds → reload → close the recovery tab → edit/autosave → asserts autosave proceeds normally and the original stays recoverable via the key (no over-blocking).
+
+### Verification performed
+
+Windows 11, Node v24.20.0, Playwright 1.65.1.
+
+- Function-level probe (auditor's method, exact updated functions, synthetic storage, no browser integration claim): first session arms the guard and persists `recoveryTabId`; a fresh session re-arms the guard from the persisted metadata (`guardArmed: true`, guard equals the original raw); after closing the recovery tab the destructive autosave is blocked (`storedContainsOriginal: true`, denied-write log + "Autosave blocked" toast); the successful-backup control is not blocked (`guardArmed: false`, storage updated, key retains the original). The probe asserted the fixed behavior and passed.
+- Committed suite, this checkout: `npx playwright test tests/phase1-save-recovery.spec.js --project=chromium --project=firefox` — **30 passed / 0 failed / 0 skipped** (15 scenarios × 2 browsers, 13 previous + the 2 new R02-RL scenarios), incl. the unseeded-reload and control cases on both browsers.
+- Configured CI (`ubuntu-latest`, same workflow as §3) reruns on push of this batch; the run link and result are recorded below at commit time.
+
+### Gate disposition
+
+- R02-RL is addressed with the durable recovery metadata design the re-audit required; bounded batch acceptance is again proposed for independent re-verification. Remaining Phase 1 scope (P09, P17) stays open; native OS permission/save UI remains unvalidated, as does WebKit, which the committed workflow does not claim.

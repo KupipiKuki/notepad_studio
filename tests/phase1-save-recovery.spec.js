@@ -46,6 +46,12 @@ function mkState(tabs) {
 
 async function openApp(page, context, seed, raw = null, url = APP_URL) {
   await context.addInitScript(({ seed, raw }) => {
+    // R02-RL: seed isolated storage once per context. The init script runs on
+    // every navigation, so a naive seed would rewrite the original fixture
+    // before the app bootstraps on reload — hiding genuine cross-session
+    // persistence bugs. After the first load the app owns the storage key and
+    // reloads must reopen exactly the bytes it persisted.
+    if (localStorage.getItem('npp_studio_state_v1') !== null) return;
     if (raw !== null) {
       localStorage.setItem('npp_studio_state_v1', raw);
     } else {
@@ -445,7 +451,13 @@ test('R02: denied recovery writes preserve the original and block destructive au
     ]
   });
   await context.addInitScript(({ raw }) => {
-    localStorage.setItem('npp_studio_state_v1', raw);
+    // R02-RL: seed once per context (see openApp); the reload tests must
+    // reopen the bytes the app actually persisted, not this fixture.
+    if (localStorage.getItem('npp_studio_state_v1') === null) {
+      localStorage.setItem('npp_studio_state_v1', raw);
+    }
+    // The patch itself must run on every navigation: each document starts
+    // with a pristine Storage.prototype.
     const originalSetItem = Storage.prototype.setItem;
     Storage.prototype.setItem = function (key, value) {
       if (key === 'npp_studio_state_v1_recovery') {
@@ -490,6 +502,131 @@ test('R02: denied recovery writes preserve the original and block destructive au
   const finalToast = await page.evaluate(() => document.querySelector('#toastMessage').textContent);
   expect(finalToast).toContain('Autosave blocked');
   await expect(page.locator('#statusErrorText')).not.toHaveText('0 Errors');
+  expect(errors).toEqual([]);
+});
+
+// ---------------------------------------------------------------------------
+// R02-RL: recovery-pending protection must survive an unseeded reload. Recovery
+// writes stay denied across the whole sequence: repair -> first-session
+// autosave embedding the raw payload -> reload (no fixture reseed) -> close the
+// last recovery tab -> edit/autosave. The original must remain accessible and
+// the destructive autosave must be blocked with accurate feedback.
+// ---------------------------------------------------------------------------
+
+test('R02-RL: recovery protection survives an unseeded reload when recovery writes are denied', async ({ page, context }) => {
+  const marker = 'R02_RL_CROSS_SESSION_MARKER';
+  const raw = JSON.stringify({
+    ...mkState([mkTab('good', 'good document')]),
+    tabs: [
+      mkTab('good', 'good document'),
+      { ...mkTab('bad', ''), content: { unrenderable: marker } }
+    ]
+  });
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await context.addInitScript(({ raw }) => {
+    if (localStorage.getItem('npp_studio_state_v1') === null) {
+      localStorage.setItem('npp_studio_state_v1', raw);
+    }
+    const originalSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key === 'npp_studio_state_v1_recovery') {
+        throw new DOMException('denied recovery write', 'QuotaExceededError');
+      }
+      return originalSetItem.call(this, key, value);
+    };
+  }, { raw });
+  await page.goto(APP_URL, { waitUntil: 'load' });
+  await page.locator('.CodeMirror').nth(1).waitFor({ state: 'attached' });
+
+  // First session: repair + guard; the recovery key write is denied
+  const boot = await page.evaluate(() => ({
+    recovery: localStorage.getItem('npp_studio_state_v1_recovery'),
+    toast: document.querySelector('#toastMessage').textContent
+  }));
+  expect(boot.recovery).toBe(null);
+  expect(boot.toast).toContain('workspace-recovery.json');
+
+  // Successful first-session autosave embeds the raw payload in the workspace
+  await setValue(page, 'edited first session');
+  await page.waitForTimeout(1200);
+  const embedded = await stored(page);
+  expect(embedded.tabs.some((t) => t.name === 'workspace-recovery.json' && t.content === raw)).toBe(true);
+
+  // Unseeded reload: the app reopens the bytes it actually persisted
+  await page.reload({ waitUntil: 'load' });
+  await page.locator('.CodeMirror').nth(1).waitFor({ state: 'attached' });
+  const afterReload = await page.evaluate(() => ({
+    stored: localStorage.getItem('npp_studio_state_v1'),
+    recovery: localStorage.getItem('npp_studio_state_v1_recovery'),
+    tabs: [...document.querySelectorAll('.tab-title')].map((e) => e.textContent),
+    toast: document.querySelector('#toastMessage').textContent
+  }));
+  expect(afterReload.recovery).toBe(null);
+  expect(afterReload.tabs).toContain('workspace-recovery.json'); // the only retained copy reopened
+  expect(afterReload.stored).toContain(marker); // the persisted workspace still carries the original
+
+  // Close the last recovery tab (clean: no confirm dialog), edit, autosave
+  const protectedState = afterReload.stored;
+  await page.locator('.tab-item').filter({ hasText: 'workspace-recovery.json' }).locator('.tab-close').click();
+  await setValue(page, 'edited after reload close');
+  await page.waitForTimeout(1400);
+  const afterClose = await page.evaluate(() => ({
+    stored: localStorage.getItem('npp_studio_state_v1'),
+    recovery: localStorage.getItem('npp_studio_state_v1_recovery'),
+    toast: document.querySelector('#toastMessage').textContent
+  }));
+  // The destructive autosave is blocked and reported; the workspace that still
+  // contains the original is left intact
+  expect(afterClose.stored).toBe(protectedState);
+  expect(afterClose.stored).toContain(marker);
+  expect(afterClose.recovery).toBe(null);
+  expect(afterClose.toast).toContain('Autosave blocked');
+  await expect(page.locator('#statusErrorText')).not.toHaveText('0 Errors');
+  expect(errors).toEqual([]);
+});
+
+// ---------------------------------------------------------------------------
+// R02-RL control: when the recovery-key backup verifiably exists, ordinary
+// close + autosave must not be unnecessarily blocked after a reload.
+// ---------------------------------------------------------------------------
+
+test('R02-RL control: retained recovery-key backup does not block close/autosave across reload', async ({ page, context }) => {
+  const raw = '{"broken recoverable control workspace';
+  const errors = await openApp(page, context, null, raw);
+
+  // Corrupt state: recovery tab is pushed and the backup write succeeds here
+  const boot = await page.evaluate(() => ({
+    recovery: localStorage.getItem('npp_studio_state_v1_recovery'),
+    tabs: [...document.querySelectorAll('.tab-title')].map((e) => e.textContent)
+  }));
+  expect(boot.recovery).toBe(raw);
+  expect(boot.tabs).toContain('workspace-recovery.json');
+
+  await setValue(page, 'edited control session');
+  await page.waitForTimeout(1200);
+
+  // Unseeded reload: the app-persisted workspace is reopened as-is
+  await page.reload({ waitUntil: 'load' });
+  await page.locator('.CodeMirror').nth(1).waitFor({ state: 'attached' });
+  const afterReload = await page.evaluate(() => ({
+    recovery: localStorage.getItem('npp_studio_state_v1_recovery'),
+    tabs: [...document.querySelectorAll('.tab-title')].map((e) => e.textContent)
+  }));
+  expect(afterReload.recovery).toBe(raw); // backup retained verbatim
+
+  // Closing the recovery tab and autosaving must proceed normally: the backup
+  // exists, so this is not a destructive replacement
+  await page.locator('.tab-item').filter({ hasText: 'workspace-recovery.json' }).locator('.tab-close').click();
+  await setValue(page, 'ordinary edit after closing recovery tab');
+  await page.waitForTimeout(1400);
+  const state = await stored(page);
+  expect(state.tabs.some((t) => t.name === 'workspace-recovery.json')).toBe(false);
+  expect(state.tabs.some((t) => t.content === 'ordinary edit after closing recovery tab')).toBe(true);
+  const recovery = await page.evaluate(() => localStorage.getItem('npp_studio_state_v1_recovery'));
+  expect(recovery).toBe(raw); // the original stays recoverable via the key
+  const toast = await page.evaluate(() => document.querySelector('#toastMessage').textContent);
+  expect(toast).not.toContain('Autosave blocked');
   expect(errors).toEqual([]);
 });
 
