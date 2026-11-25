@@ -53,7 +53,7 @@ Windows 11, Node v24.20.0, Playwright 1.65.1.
 - New spec alone, Chromium + Firefox: **14 passed / 0 failed**.
 - Full committed suite (both specs), the exact CI command `npx playwright test tests/phase1-save-recovery.spec.js tests/phase1-split-encoding.spec.js --project=chromium --project=firefox`: **44 passed / 0 failed / 0 skipped** (22 scenarios × 2 browsers).
 - Regression validity: with the P09 sync call temporarily disabled, the same-tab P09 scenario fails at the secondary-sync assertion (observed), and passes with the fix restored.
-- Configured CI (`ubuntu-latest`) reruns on push of this batch (run link recorded below at commit time).
+- Configured CI (`ubuntu-latest`) reran on push of this batch: GitHub Actions run [45710963119](https://github.com/KupipiKuki/notepad_studio/actions/runs/45710963119) (`Playwright Tests`, event `push`, branch `wp/phase1`, head `74dd6c4`) completed with conclusion `success`; every step concluded `success`, including `Install dependencies` (`npm ci`) and `Run Playwright tests` (`npx playwright test tests/phase1-save-recovery.spec.js tests/phase1-split-encoding.spec.js --project=chromium --project=firefox`). Playwright exits non-zero on any failed test, so the successful step is direct evidence that all 44 tests of the extended committed suite (22 scenarios × 2 browsers) passed in the intended Linux environment. The `playwright-report` artifact was uploaded from that run.
 
 ## 5. Gate disposition
 
