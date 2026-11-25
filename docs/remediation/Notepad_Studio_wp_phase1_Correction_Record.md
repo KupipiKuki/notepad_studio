@@ -1,6 +1,6 @@
 # Notepad Studio — wp/phase1 correction batch: R01–R04
 
-Implementation date: December 1, 2026 (America/New_York). Evidence timestamps use UTC.
+Implementation date: November 24, 2026 (America/New_York). Evidence timestamps use UTC.
 Branch: `wp/phase1` (cut from `wp/phase0` @ `a2f1acb` per the transition audit).
 Scope: the four blocking findings of `docs/remediation/Notepad_Studio_wp_phase0_Independent_Audit.md` — R02 (P0), R01/R03/R04 (P1) — plus the required regressions. No other findings (notably P09, P17) are claimed closed by this batch.
 
@@ -50,12 +50,13 @@ Windows 11, Node v24.20.0, Playwright 1.65.1 (npm ci from committed `package-loc
 
 - Committed suite, this checkout: `npx playwright test tests/phase1-save-recovery.spec.js --project=chromium --project=firefox --workers=1` — **26 passed / 0 failed / 0 skipped** (13 scenarios × 2 browsers; the 16 previously committed results plus 10 new regressions), incl. real browser downloads with exact-byte assertions on the loopback HTTP origin.
 - **Genuine quota confirmation** (independent file-origin probe, not part of the committed suite): with the 3,000,378-char raw workspace stored, both Chromium and Firefox threw a real `QuotaExceededError` on the recovery-key duplicate write; the app then showed `Workspace repaired; recovery backup failed — original preserved as workspace-recovery.json tab.` (not the false success toast), surfaced the recovery tab, and after an edit plus the autosave debounce the marker remained present in `npp_studio_state_v1`. Matches the auditor's reproduction conditions and confirms the genuine-quota branch of the R02 regression was exercised, not the backup-succeeded branch.
+- **Configured CI execution** (retrospective note added after the batch was pushed): GitHub Actions run `45525662464` (`Playwright Tests`, event `push`, branch `wp/phase1`, head `3c30b5d`, `ubuntu-latest`, attempt 1) ran 2026-11-25T01:25:36Z–01:26:51Z with every step concluded `success`, including `Install dependencies` (`npm ci`), `Install Playwright Browsers` (chromium + firefox) and `Run Playwright tests` (`npx playwright test tests/phase1-save-recovery.spec.js --project=chromium --project=firefox`). Playwright exits non-zero on any failed test, so the successful step is direct evidence that the committed, now location-independent spec passed in the workflow's intended Linux environment — the environment R04 identified as unable to even locate the app before this batch. The report artifact `playwright-report` (216,378 bytes) was uploaded from that run.
 
 ## 4. Gate disposition
 
 - The four blocking findings R01–R04 from the independent audit are addressed with regressions passing on Chromium and Firefox on Windows.
 - **Bounded batch acceptance** (per transition-audit §4) is proposed for independent re-verification; this record does not self-declare G1. Remaining Phase 1 scope — P09 (split-pane edit preservation) and P17 (encoding/large-file policy) — stays open as already declared.
-- Not validated here and not claimed: native Windows picker UI with real OS permission grants, real disk writes beyond the synthetic handle paths, WebKit, full four-browser/origin matrix, and a completed configured CI execution on `ubuntu-latest` (the workflow is now configured to run on push to `wp/phase1`; its result must be read from the Actions run, not from this document).
+- Not validated here and not claimed: native Windows picker UI with real OS permission grants, real disk writes beyond the synthetic handle paths, WebKit, and the full four-browser/origin matrix. The configured CI execution on `ubuntu-latest` **did** complete successfully (see §3).
 
 ## 5. Change register
 
