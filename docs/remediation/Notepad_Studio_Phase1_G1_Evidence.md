@@ -22,7 +22,7 @@ The P09/P17 QA/QC report's residual observation was the last open checklist item
 Windows 11, Node v24.20.0, Playwright 1.65.1.
 
 - Full committed suite, the exact CI command `npx playwright test tests/phase1-save-recovery.spec.js tests/phase1-split-encoding.spec.js --project=chromium --project=firefox`: **52 passed / 0 failed / 0 skipped** (26 scenarios × 2 browsers).
-- Configured CI (`ubuntu-latest`) reran on push of this batch (run link recorded at commit time in the follow-up).
+- Configured CI (`ubuntu-latest`) reran on push of this batch: GitHub Actions run [45748514671](https://github.com/KupipiKuki/notepad_studio/actions/runs/45748514671) (`Playwright Tests`, event `push`, branch `wp/phase1`, head `7a39b47`) completed with conclusion `success`, including `Run Playwright tests` (`npx playwright test tests/phase1-save-recovery.spec.js tests/phase1-split-encoding.spec.js --project=chromium --project=firefox`). Playwright exits non-zero on any failed test, so the successful step is direct evidence that all 52 tests (26 scenarios × 2 browsers) passed in the intended Linux environment. The `playwright-report` artifact was uploaded from that run.
 
 ## 2. Phase 1 checklist disposition (plan §4, G1 = "no silent loss or false clean state in tested save/cancel/permission/quota/split-edit scenarios; exact bytes and pre/post states match for all supported file formats and line endings")
 
