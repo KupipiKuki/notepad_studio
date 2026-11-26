@@ -74,7 +74,7 @@ All three malformed-data tests **fail against the committed pre-fix app** (obser
 ### Verification performed
 
 - Full committed suite, the exact CI command: **60 passed / 0 failed / 0 skipped** (30 scenarios × 2 browsers = 15 save-recovery + 15 split/encoding).
-- Configured CI (`ubuntu-latest`) reran on push of this frozen corrected candidate (run link recorded below at commit time).
+- Configured CI (`ubuntu-latest`) reran on push of this frozen corrected candidate: GitHub Actions run [45826357108](https://github.com/KupipiKuki/notepad_studio/actions/runs/45826357108) (`Playwright Tests`, event `push`, branch `wp/phase1`, head `b223edf`) completed with conclusion `success`, including `Run Playwright tests` (`npx playwright test tests/phase1-save-recovery.spec.js tests/phase1-split-encoding.spec.js --project=chromium --project=firefox`). Playwright exits non-zero on any failed test, so the successful step is direct evidence that all 60 tests (30 scenarios × 2 browsers) passed in the intended Linux environment. The `playwright-report` artifact was uploaded from that run.
 
 ### Updated gate disposition
 
