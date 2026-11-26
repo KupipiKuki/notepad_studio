@@ -282,14 +282,79 @@ test('P17: files over the open limit are refused with explicit feedback', async 
 
 test('P17: UTF-16LE BOM files are decoded with an explicit notice', async ({ page, context }) => {
   const errors = await openApp(page, context, mkState([mkTab('a', 'seed')]));
-  const input = Buffer.from([0xFF, 0xFE, 0x61, 0x00, 0x62, 0x00]); // UTF-16LE "ab"
+  const input = Buffer.from([0xFF, 0xFE, 0x61, 0x00, 0x62, 0x00, 0x63, 0x00, 0x64, 0x00, 0x65, 0x00]); // UTF-16LE "abcde"
   await page.locator('#fileInput').setInputFiles({ name: 'utf16.txt', mimeType: 'text/plain', buffer: input });
   await page.waitForTimeout(300);
 
-  expect(await getValue(page)).toBe('ab'); // decoded by its byte-order mark
+  expect(await getValue(page)).toBe('abcde'); // decoded by its byte-order mark
   const toast = await page.evaluate(() => document.querySelector('#toastMessage').textContent);
   expect(toast).toContain('UTF-16LE');
+  expect(toast).not.toContain('not valid'); // valid control: no false invalid-data warning
   await expect(page.locator('#statusErrorText')).not.toHaveText('0 Errors'); // notice durably surfaced
+  expect(errors).toEqual([]);
+});
+
+// ---------------------------------------------------------------------------
+// P17 (G1 hold follow-up): malformed BOM-marked UTF-16 must not be decoded
+// silently lossily — both LE and BE branches validate with fatal decoding and
+// warn exactly like the UTF-8 branches. Fixtures from the independent G1
+// review probe: a truncated final code unit becomes one U+FFFD.
+// ---------------------------------------------------------------------------
+
+test('P17: malformed UTF-16LE is reported and re-exported with the stated loss', async ({ page, context }) => {
+  const baseUrl = await startHttpApp();
+  const errors = await openApp(page, context, mkState([mkTab('a', 'seed')]), null, baseUrl);
+  // FF FE BOM + "abcde" + a truncated final LE code unit (0x66)
+  const input = Buffer.from([0xFF, 0xFE, 0x61, 0x00, 0x62, 0x00, 0x63, 0x00, 0x64, 0x00, 0x65, 0x00, 0x66]);
+  await page.locator('#fileInput').setInputFiles({ name: 'utf16le-bad.txt', mimeType: 'text/plain', buffer: input });
+  await page.waitForTimeout(300);
+
+  expect(await getValue(page)).toBe('abcde\uFFFD');
+  const toast = await page.evaluate(() => document.querySelector('#toastMessage').textContent);
+  expect(toast).toContain('not valid UTF-16LE'); // the loss is disclosed, not bypassed
+  await expect(page.locator('#statusErrorText')).not.toHaveText('0 Errors');
+
+  const pendingDownload = page.waitForEvent('download');
+  await page.locator('#btnSaveFile').click();
+  const download = await pendingDownload;
+  const written = fs.readFileSync(await download.path());
+  // Documented output: the truncated unit is re-exported as U+FFFD (EF BF BD)
+  expect([...written]).toEqual([...Buffer.from('abcde\uFFFD', 'utf8')]);
+  expect(errors).toEqual([]);
+});
+
+test('P17: malformed UTF-16BE is reported and re-exported with the stated loss', async ({ page, context }) => {
+  const baseUrl = await startHttpApp();
+  const errors = await openApp(page, context, mkState([mkTab('a', 'seed')]), null, baseUrl);
+  // FE FF BOM + "abcde" BE + a truncated final BE code unit (0x00)
+  const input = Buffer.from([0xFE, 0xFF, 0x00, 0x61, 0x00, 0x62, 0x00, 0x63, 0x00, 0x64, 0x00, 0x65, 0x00]);
+  await page.locator('#fileInput').setInputFiles({ name: 'utf16be-bad.txt', mimeType: 'text/plain', buffer: input });
+  await page.waitForTimeout(300);
+
+  expect(await getValue(page)).toBe('abcde\uFFFD');
+  const toast = await page.evaluate(() => document.querySelector('#toastMessage').textContent);
+  expect(toast).toContain('not valid UTF-16BE');
+  await expect(page.locator('#statusErrorText')).not.toHaveText('0 Errors');
+
+  const pendingDownload = page.waitForEvent('download');
+  await page.locator('#btnSaveFile').click();
+  const download = await pendingDownload;
+  const written = fs.readFileSync(await download.path());
+  expect([...written]).toEqual([...Buffer.from('abcde\uFFFD', 'utf8')]);
+  expect(errors).toEqual([]);
+});
+
+test('P17: valid UTF-16BE decodes cleanly with no false invalid-data warning', async ({ page, context }) => {
+  const errors = await openApp(page, context, mkState([mkTab('a', 'seed')]));
+  const input = Buffer.from([0xFE, 0xFF, 0x00, 0x61, 0x00, 0x62, 0x00, 0x63, 0x00, 0x64, 0x00, 0x65]); // UTF-16BE "abcde"
+  await page.locator('#fileInput').setInputFiles({ name: 'utf16be.txt', mimeType: 'text/plain', buffer: input });
+  await page.waitForTimeout(300);
+
+  expect(await getValue(page)).toBe('abcde');
+  const toast = await page.evaluate(() => document.querySelector('#toastMessage').textContent);
+  expect(toast).toContain('UTF-16BE');
+  expect(toast).not.toContain('not valid'); // valid control: no false invalid-data warning
+  await expect(page.locator('#statusErrorText')).not.toHaveText('0 Errors'); // conversion notice durably surfaced
   expect(errors).toEqual([]);
 });
 
@@ -376,5 +441,23 @@ test('P17 native open: valid UTF-8 opens cleanly with no false warnings', async 
   const toast = await page.evaluate(() => document.querySelector('#toastMessage').textContent);
   expect(toast).toContain('Created native-clean.txt'); // ordinary creation feedback, no policy noise
   await expect(page.locator('#statusErrorText')).toHaveText('0 Errors');
+  expect(errors).toEqual([]);
+});
+
+test('P17 native open: malformed UTF-16LE through the picker gets the same policy', async ({ page, context }) => {
+  const errors = await openApp(page, context, mkState([mkTab('a', 'seed')]));
+  // G1 independent review: the native boundary must receive the same
+  // malformed-UTF-16 disclosure as the input path (shared open pipeline)
+  await installNativePicker(page, [{
+    name: 'native-utf16le-bad.txt',
+    bytes: [0xFF, 0xFE, 0x61, 0x00, 0x62, 0x00, 0x63, 0x00, 0x64, 0x00, 0x65, 0x00, 0x66]
+  }]);
+  await page.locator('#btnOpenFile').click();
+  await page.waitForTimeout(300);
+
+  expect(await getValue(page)).toBe('abcde\uFFFD');
+  const toast = await page.evaluate(() => document.querySelector('#toastMessage').textContent);
+  expect(toast).toContain('not valid UTF-16LE'); // same disclosure via the native boundary
+  await expect(page.locator('#statusErrorText')).not.toHaveText('0 Errors');
   expect(errors).toEqual([]);
 });

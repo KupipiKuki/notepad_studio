@@ -50,5 +50,32 @@ Cumulative committed suite at this batch: **52 tests** (15 save-recovery + 11 sp
 | File | Change |
 | --- | --- |
 | `scripts/notepad-studio.html` | `openFileWithPolicy` shared open pipeline; `handleFiles` and the native picker path now both use it (native path no longer `file.text()`) |
-| `tests/phase1-split-encoding.spec.js` | 3 new native-open regressions (17 scenarios in this spec) |
+| `tests/phase1-split-encoding.spec.js` | 3 new native-open regressions (this batch: 11 scenarios in this spec; 15 save-recovery + 11 split/encoding = 26 total — count corrected per the independent G1 review's documentation nit) |
 | `docs/remediation/Notepad_Studio_Phase1_G1_Evidence.md` | This record |
+
+## 5. G1 hold follow-up — malformed BOM-marked UTF-16 disclosure
+
+Follow-up date: November 26, 2026 (America/New_York). Trigger: `docs/audit/Notepad_Studio_G1_Independent_Review.md` (decision HOLD on the malformed UTF-16 warning gap; the native-open pipeline batch itself was credited). Policy chosen from the review's options: **lossy fallback with an explicit encoding-specific warning** (consistent with the accepted UTF-8 policy), not rejection.
+
+### Changes
+
+- `scripts/notepad-studio.html` (`decodeFileBuffer`): both UTF-16 branches now decode the body with `TextDecoder('utf-16{le,be}', { fatal: true })` first exactly like the UTF-8 branches. On invalid input (e.g. a truncated final code unit) the non-fatal fallback decode keeps the U+FFFD placeholder and emits "File contained bytes that are not valid UTF-16{LE,BE}; they are shown as U+FFFD and re-saving will not reproduce the original bytes." (toast + durable log entry). The conversion notice ("decoded as UTF-16, saves are UTF-8") is unchanged and ordinary conversion remains disclosed, as the review required.
+- `tests/phase1-split-encoding.spec.js` — four new/updated regressions (fixtures are the review probe's exact hex):
+  - `P17: malformed UTF-16LE is reported and re-exported with the stated loss` — `FF FE + "abcde" + 0x66` (truncated LE unit): value `abcde\uFFFD`, "not valid UTF-16LE" toast + log, and the save re-exports the documented output bytes exactly (`abcde<U+FFFD>` = `EF BF BD`).
+  - `P17: malformed UTF-16BE is reported and re-exported with the stated loss` — `FE FF + "abcde" BE + 0x00` (truncated BE unit): same assertions with the BE-specific disclosure.
+  - `P17: valid UTF-16BE decodes cleanly with no false invalid-data warning` — valid BE control (previously only LE was covered): decodes `abcde`, conversion notice only, toast asserted **not** to contain "not valid".
+  - `P17 native open: malformed UTF-16LE through the picker gets the same policy` — the same malformed LE fixture through the native API boundary (shared `openFileWithPolicy` pipeline), proving the native path receives the identical disclosure. Additionally the existing valid-LE test was extended to assert no false "not valid" warning (valid control with no false invalid-data claim).
+- The documentation nit from the review is corrected in §4 (11 split/encoding scenarios at that batch, not 17).
+
+### Regression validity
+
+All three malformed-data tests **fail against the committed pre-fix app** (observed: silent U+FFFD, no warning — the review's reproduction), and both valid controls pass on it. With the fix restored, all five UTF-16 scenarios pass.
+
+### Verification performed
+
+- Full committed suite, the exact CI command: **60 passed / 0 failed / 0 skipped** (30 scenarios × 2 browsers = 15 save-recovery + 15 split/encoding).
+- Configured CI (`ubuntu-latest`) reran on push of this frozen corrected candidate (run link recorded below at commit time).
+
+### Updated gate disposition
+
+The corrected scenario counts are: `tests/phase1-save-recovery.spec.js` 15 scenarios, `tests/phase1-split-encoding.spec.js` 15 scenarios, 60 tests across chromium/firefox. The Phase 1 checklist disposition in §2 is otherwise unchanged; the "test every open path" row now also covers malformed UTF-16 through both the input and native boundaries with valid controls. This record still proposes G1 review — the independent reviewer's re-verification decides the gate.
