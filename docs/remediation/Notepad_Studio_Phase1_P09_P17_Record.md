@@ -86,3 +86,7 @@ Follow-up date: November 26, 2026 (America/New_York). The auditor held the P17 a
 - Regression validity: the new test **fails against the committed pre-fix app** (observed: no warning, the BOM branch bypassed it) and passes with the correction.
 - Full committed suite, both specs, the exact CI command: **46 passed / 0 failed / 0 skipped** (23 scenarios × 2 browsers, 22 previous + this regression).
 - Configured CI (`ubuntu-latest`) reran on push of this batch: GitHub Actions run [45730238080](https://github.com/KupipiKuki/notepad_studio/actions/runs/45730238080) (`Playwright Tests`, event `push`, branch `wp/phase1`, head `3bb06f6`) completed with conclusion `success`, including `Run Playwright tests` (`npx playwright test tests/phase1-save-recovery.spec.js tests/phase1-split-encoding.spec.js --project=chromium --project=firefox`). Playwright exits non-zero on any failed test, so the successful step is direct evidence that all 46 tests (23 scenarios × 2 browsers) passed in the intended Linux environment. The `playwright-report` artifact was uploaded from that run.
+
+## 8. G1 follow-up: native open path
+
+The P09/P17 QA/QC residual observation (native `showOpenFilePicker` path lossy via `file.text()`) was closed in the G1 batch: every open path (file input, drag/drop, native picker) now shares `openFileWithPolicy` — the P17 size guard and verified decode — with three new native-path regressions. The consolidated Phase 1 / G1 disposition lives in `docs/remediation/Notepad_Studio_Phase1_G1_Evidence.md`.

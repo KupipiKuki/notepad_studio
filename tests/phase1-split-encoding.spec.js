@@ -292,3 +292,89 @@ test('P17: UTF-16LE BOM files are decoded with an explicit notice', async ({ pag
   await expect(page.locator('#statusErrorText')).not.toHaveText('0 Errors'); // notice durably surfaced
   expect(errors).toEqual([]);
 });
+
+// ---------------------------------------------------------------------------
+// P17 / G1: the native showOpenFilePicker path must share the verified decode
+// and size guard — file.text() silently stripped BOMs and replaced invalid
+// UTF-8 without any warning, so "every open path" was not honest
+// ---------------------------------------------------------------------------
+
+function installNativePicker(page, files, writableCapture = false) {
+  return page.evaluate(({ files, writableCapture }) => {
+    window.__nativeWritten = null;
+    window.showOpenFilePicker = async () => files.map((f) => ({
+      name: f.name,
+      getFile: async () => new File([new Uint8Array(f.bytes)], f.name, { type: 'text/plain' }),
+      createWritable: writableCapture
+        ? async () => ({ write: async (text) => { window.__nativeWritten = text; }, close: async () => {} })
+        : undefined
+    }));
+  }, { files, writableCapture });
+}
+
+test('P17 native open: the picker path decodes through the verified pipeline', async ({ page, context }) => {
+  const errors = await openApp(page, context, mkState([mkTab('a', 'seed')]));
+  // Same fixture as the input-path regression: UTF-8 BOM + "caf" + Latin-1 E9
+  await installNativePicker(page, [{
+    name: 'native-bom-invalid.txt',
+    bytes: [0xEF, 0xBB, 0xBF, 0x63, 0x61, 0x66, 0xE9, 0x0A]
+  }], true);
+  await page.locator('#btnOpenFile').click();
+  await page.waitForTimeout(300);
+
+  const text = await getValue(page);
+  expect(text.charCodeAt(0)).toBe(0xFEFF); // BOM not stripped by the native path
+  expect(text.slice(1)).toBe('caf\uFFFD\n');
+  const toast = await page.evaluate(() => document.querySelector('#toastMessage').textContent);
+  expect(toast).toContain('not valid UTF-8'); // lossy decode reported, not bypassed
+  await expect(page.locator('#statusErrorText')).not.toHaveText('0 Errors');
+
+  // The native handle was attached: a direct save writes through it with the
+  // BOM preserved and the stated loss (U+FFFD) in the payload
+  await page.locator('#btnSaveFile').click();
+  await page.waitForFunction(() => window.__nativeWritten !== null);
+  const written = await page.evaluate(() => window.__nativeWritten);
+  expect(written).toBe('\uFEFFcaf\uFFFD\r\n'); // CRLF per selected line-ending policy
+  const state = await stored(page);
+  const tab = state.tabs.find((t) => t.name === 'native-bom-invalid.txt');
+  expect(tab.savedContent).toBe('\uFEFFcaf\uFFFD\n'); // honest snapshot, not normalized bytes
+  expect(tab.dirty).toBe(false);
+  await expect(page.locator('#statusReady')).toHaveText('Saved');
+  expect(errors).toEqual([]);
+});
+
+test('P17 native open: oversized files are refused with the same feedback', async ({ page, context }) => {
+  const errors = await openApp(page, context, mkState([mkTab('a', 'seed')]));
+  await page.evaluate(() => {
+    // 3 MB 'A' file built inside the page: no multi-megabyte serialization
+    window.showOpenFilePicker = async () => [{
+      name: 'native-big.txt',
+      getFile: async () => new File([new Uint8Array(3 * 1024 * 1024).fill(0x41)], 'native-big.txt', { type: 'text/plain' }),
+      createWritable: undefined
+    }];
+  });
+  const before = await page.locator('.tab-item').count();
+  await page.locator('#btnOpenFile').click();
+  await page.waitForTimeout(400);
+
+  expect(await page.locator('.tab-item').count()).toBe(before); // no tab created
+  const toast = await page.evaluate(() => document.querySelector('#toastMessage').textContent);
+  expect(toast).toContain('open limit');
+  await expect(page.locator('#statusErrorText')).not.toHaveText('0 Errors');
+  const state = await stored(page);
+  expect(state.tabs.map((t) => t.id)).toEqual(['a']); // workspace untouched
+  expect(errors).toEqual([]);
+});
+
+test('P17 native open: valid UTF-8 opens cleanly with no false warnings', async ({ page, context }) => {
+  const errors = await openApp(page, context, mkState([mkTab('a', 'seed')]));
+  await installNativePicker(page, [{ name: 'native-clean.txt', bytes: [0x68, 0x65, 0x6C, 0x6C, 0x6F, 0x0A] }]);
+  await page.locator('#btnOpenFile').click();
+  await page.waitForTimeout(300);
+
+  expect(await getValue(page)).toBe('hello\n');
+  const toast = await page.evaluate(() => document.querySelector('#toastMessage').textContent);
+  expect(toast).toContain('Created native-clean.txt'); // ordinary creation feedback, no policy noise
+  await expect(page.locator('#statusErrorText')).toHaveText('0 Errors');
+  expect(errors).toEqual([]);
+});
