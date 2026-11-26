@@ -1,9 +1,9 @@
 name: Playwright Tests
 on:
   push:
-    branches: [ main, master, wp/phase1 ]
+    branches: [ main, master, wp/phase1, wp/phase2 ]
   pull_request:
-    branches: [ main, master, wp/phase1 ]
+    branches: [ main, master, wp/phase1, wp/phase2 ]
 jobs:
   test:
     timeout-minutes: 60
@@ -22,9 +22,10 @@ jobs:
     # R04: run the committed remediation suite, not the upstream example spec
     # (which depends on external network sites). The specs resolve the app
     # file relative to the repository, so this is runnable on ubuntu-latest.
-    # Phase 1 completion: P09/P17 regressions live in the split/encoding spec.
+    # Phase 1: save/recovery + split/encoding (G1 accepted matrix).
+    # Phase 2: search/replace + TextFX/macro/errors (coder handoff matrix).
     - name: Run Playwright tests
-      run: npx playwright test tests/phase1-save-recovery.spec.js tests/phase1-split-encoding.spec.js --project=chromium --project=firefox
+      run: npx playwright test tests/phase1-save-recovery.spec.js tests/phase1-split-encoding.spec.js tests/phase2-search-replace.spec.js tests/phase2-textfx-macro-errors.spec.js --project=chromium --project=firefox
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
       with:

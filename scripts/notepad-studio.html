@@ -1591,6 +1591,8 @@
   let isSyncingSplitScroll = false;
   let diffUpdateTimer = null;
   let searchResults = [];
+  // Phase 2 / P13: line-count tracker for cheap bookmark-model refreshes
+  let lastEditorLineCount = 1;
 
   // Mode Map based on file extension
   const EXT_MAP = {
@@ -1708,11 +1710,18 @@
     renderErrorLogUI();
   };
 
+  // Phase 2 / P15: exact original-message copy with handled clipboard
+  // failures — no false "Copied" success, no unhandled rejections.
   window.copyErrorText = function(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(function() {
+      navigator.clipboard.writeText(String(text)).then(function() {
         showToast('Error details copied to clipboard');
+      }).catch(function(err) {
+        logError('Clipboard', 'Error copy failed: ' + ((err && err.message) || err), '');
+        showToast('Copy failed: clipboard rejected the request');
       });
+    } else {
+      showToast('Clipboard unavailable');
     }
   };
 
@@ -1765,22 +1774,69 @@
         listEl.innerHTML = '';
       } else {
         emptyEl.style.display = 'none';
-        listEl.innerHTML = errorLogs.map(function(item) {
+        // Phase 2 / P15: rows are built with element APIs and addEventListener
+        // closures — no inline onclick strings, so exact messages (including
+        // newlines, quotes, backslashes, ampersands and Unicode) survive and
+        // Dismiss removes only its own entry across rerenders.
+        listEl.innerHTML = '';
+        errorLogs.forEach(function(item) {
           const sourceClass = (item.source || '').toLowerCase();
-          const countPill = item.count > 1 ? '<span style="background:var(--bg-panel); border:1px solid var(--border); border-radius:999px; padding:0 5px; font-size:10px; font-weight:700; margin-left:4px;">×' + item.count + '</span>' : '';
-          const escapedSnippet = item.snippet ? escapeHtml(item.snippet.slice(0, 100)) + (item.snippet.length > 100 ? '...' : '') : '';
-          const copyMsg = item.message.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-          return '<div class="error-log-row">' +
-            '<span class="error-log-time">' + escapeHtml(item.time) + '</span>' +
-            '<span class="error-log-tag ' + escapeHtml(sourceClass) + '">' + escapeHtml(item.source) + '</span>' +
-            '<div class="error-log-msg">' +
-              '<span>' + escapeHtml(item.message) + '</span>' + countPill +
-              (escapedSnippet ? '<div style="opacity:0.75; font-size:10.5px; margin-top:2px;">' + escapedSnippet + '</div>' : '') +
-            '</div>' +
-            '<button class="error-log-copy-btn" onclick="copyErrorText(\'' + copyMsg + '\')" title="Copy Error Message">📋</button>' +
-            '<button class="error-log-dismiss-btn" onclick="dismissError(\'' + item.id + '\')" title="Dismiss">✕</button>' +
-          '</div>';
-        }).join('');
+          const row = document.createElement('div');
+          row.className = 'error-log-row';
+
+          const timeEl = document.createElement('span');
+          timeEl.className = 'error-log-time';
+          timeEl.textContent = item.time;
+          row.appendChild(timeEl);
+
+          const tagEl = document.createElement('span');
+          tagEl.className = 'error-log-tag ' + sourceClass;
+          tagEl.textContent = item.source;
+          row.appendChild(tagEl);
+
+          const msgWrap = document.createElement('div');
+          msgWrap.className = 'error-log-msg';
+          const msgEl = document.createElement('span');
+          msgEl.textContent = item.message; // exact original message
+          msgWrap.appendChild(msgEl);
+          if (item.count > 1) {
+            const pill = document.createElement('span');
+            pill.style.background = 'var(--bg-panel)';
+            pill.style.border = '1px solid var(--border)';
+            pill.style.borderRadius = '999px';
+            pill.style.padding = '0 5px';
+            pill.style.fontSize = '10px';
+            pill.style.fontWeight = '700';
+            pill.style.marginLeft = '4px';
+            pill.textContent = '×' + item.count;
+            msgWrap.appendChild(pill);
+          }
+          if (item.snippet) {
+            const snippetEl = document.createElement('div');
+            snippetEl.style.opacity = '0.75';
+            snippetEl.style.fontSize = '10.5px';
+            snippetEl.style.marginTop = '2px';
+            snippetEl.textContent = item.snippet.slice(0, 100) + (item.snippet.length > 100 ? '...' : '');
+            msgWrap.appendChild(snippetEl);
+          }
+          row.appendChild(msgWrap);
+
+          const copyBtn = document.createElement('button');
+          copyBtn.className = 'error-log-copy-btn';
+          copyBtn.title = 'Copy Error Message';
+          copyBtn.textContent = '📋';
+          copyBtn.addEventListener('click', function() { window.copyErrorText(item.message); });
+          row.appendChild(copyBtn);
+
+          const dismissBtn = document.createElement('button');
+          dismissBtn.className = 'error-log-dismiss-btn';
+          dismissBtn.title = 'Dismiss';
+          dismissBtn.textContent = '✕';
+          dismissBtn.addEventListener('click', function() { window.dismissError(item.id); });
+          row.appendChild(dismissBtn);
+
+          listEl.appendChild(row);
+        });
 
         if (bodyEl) bodyEl.scrollTop = bodyEl.scrollHeight;
       }
@@ -1849,6 +1905,24 @@
         editor.setCursor(cur);
         isSwitchingTab = false;
       }
+      // Phase 2 / P13 + B01: a secondary edit can restructure lines and make
+      // previously computed search results stale. The same-tab sync above is
+      // guarded (isSwitchingTab), so the primary change handler's hooks do
+      // not run — handle both here.
+      if (splitTab.id === activeTabId) {
+        if (editor.lineCount() !== lastEditorLineCount) {
+          lastEditorLineCount = editor.lineCount();
+          splitTab.bookmarks = collectActiveBookmarks();
+        }
+      } else if (Array.isArray(splitTab.bookmarks)) {
+        // Split edits to a non-active tab: clamp persisted bookmark indices
+        // to the new line count (the tab's live markers are not rendered).
+        const newCount = splitTab.content.split('\n').length;
+        if (splitTab.bookmarks.some(function(l) { return l >= newCount; })) {
+          splitTab.bookmarks = splitTab.bookmarks.filter(function(l) { return l < newCount; });
+        }
+      }
+      if (searchResults.length) invalidateSearchResults();
       renderTabs();
       scheduleSave();
     });
@@ -1869,6 +1943,20 @@
       updateStatusMetrics();
       scheduleOutlineUpdate();
       scheduleSave();
+      // Phase 2 / P13: keep the persisted bookmark model in step with the live
+      // gutters whenever line structure changes (TextFX, Replace All, macro
+      // replay, bookmark-line deletion, undo/redo).
+      if (editor.lineCount() !== lastEditorLineCount) {
+        lastEditorLineCount = editor.lineCount();
+        tab.bookmarks = collectActiveBookmarks();
+      }
+      // Phase 2 / B01: previously computed search results must not appear
+      // current after any content change.
+      if (searchResults.length) invalidateSearchResults();
+      // Phase 2 / P08: keep the single-tab match count honest after edits
+      if (document.getElementById('findReplacePanel').classList.contains('show')) {
+        updateSearchResults();
+      }
       // Phase 1 / P09: keep an open split pane showing this same tab in sync
       syncSplitViewIfSameTab();
     });
@@ -1969,6 +2057,7 @@
       editor.clearHistory();
     }
     isSwitchingTab = false;
+    lastEditorLineCount = editor.lineCount();
 
     document.getElementById('languageSelect').value = tab.mode;
 
@@ -2036,6 +2125,7 @@
       activeTabId = null;
       selectTab(nextId);
     }
+    invalidateSearchResults(); // Phase 2 / B01: closed-tab references must not stay clickable
     scheduleSave();
   }
 
@@ -2048,6 +2138,7 @@
       editor.setOption('mode', resolveCodeMirrorMode(tab.mode));
       document.getElementById('languageSelect').value = tab.mode;
     }
+    invalidateSearchResults(); // Phase 2 / B01: rendered file labels must not go stale
     renderTabs();
     renderSidebarFiles();
     populateSplitTabSelect();
@@ -2282,31 +2373,75 @@
       editor.replaceSelection(transformed);
     } else {
       const cur = editor.getCursor();
+      // Phase 2 / P13: setValue replaces every line and CodeMirror drops
+      // gutter markers with them. Capture the old lines/bookmarks first and
+      // remap bookmarks by unchanged line content after the transform, so
+      // sorts/dedupe/blank-line removal shift them instead of silently
+      // discarding them; lines whose content disappeared lose their bookmark
+      // (defined policy).
+      const oldLines = editor.getValue().split('\n');
+      const oldBookmarks = collectActiveBookmarks();
       editor.setValue(transformed);
       editor.setCursor(cur);
+      if (oldBookmarks.length) {
+        const newLines = transformed.split('\n');
+        const used = new Set();
+        const remapped = [];
+        oldBookmarks.forEach(function(j) {
+          const text = oldLines[j];
+          for (let i = 0; i < newLines.length; i++) {
+            if (!used.has(i) && newLines[i] === text) { used.add(i); remapped.push(i); break; }
+          }
+        });
+        remapped.sort(function(a, b) { return a - b; }).forEach(function(l) {
+          editor.setGutterMarker(l, 'CodeMirror-bookmarks', makeBookmarkMarker());
+        });
+      }
     }
+    // Phase 2 / P13: transforms can delete or reorder lines; re-sync the
+    // persisted bookmark model with the live gutters.
+    const tab = getActiveTab();
+    if (tab) tab.bookmarks = collectActiveBookmarks();
+    lastEditorLineCount = editor.lineCount();
   }
 
+  // Phase 2 / P12: the complete, validated TextFX action set. Macro replay
+  // rejects unknown action names instead of silently erasing stored data.
+  const TEXTFX_ACTIONS = [
+    'sort-asc', 'sort-desc', 'remove-duplicates', 'trim-whitespace',
+    'remove-blank-lines', 'to-upper', 'to-lower', 'to-title', 'to-camel',
+    'format-json', 'minify-json', 'base64-encode', 'base64-decode',
+    'url-encode', 'url-decode'
+  ];
+
+  // Phase 2 / P12: every action reports success/failure so macro replay can
+  // stop at the first failed action instead of reporting a false success.
   function runTextFxAction(action) {
+    if (typeof action !== 'string' || TEXTFX_ACTIONS.indexOf(action) === -1) {
+      logError('TextFX', 'Unknown TextFX action: ' + String(action), '');
+      showToast('Unknown TextFX action: ' + String(action));
+      return false;
+    }
     if (isRecordingMacro) {
       macroActions.push(action);
     }
 
-    if (action === 'sort-asc') sortLines(false);
-    else if (action === 'sort-desc') sortLines(true);
-    else if (action === 'remove-duplicates') removeDuplicateLines();
-    else if (action === 'trim-whitespace') trimWhitespace();
-    else if (action === 'remove-blank-lines') removeBlankLines();
-    else if (action === 'to-upper') transformCase('upper');
-    else if (action === 'to-lower') transformCase('lower');
-    else if (action === 'to-title') transformCase('title');
-    else if (action === 'to-camel') transformCase('camel');
-    else if (action === 'format-json') formatJson(false);
-    else if (action === 'minify-json') formatJson(true);
-    else if (action === 'base64-encode') base64Convert(false);
-    else if (action === 'base64-decode') base64Convert(true);
-    else if (action === 'url-encode') urlConvert(false);
-    else if (action === 'url-decode') urlConvert(true);
+    if (action === 'sort-asc') return sortLines(false);
+    else if (action === 'sort-desc') return sortLines(true);
+    else if (action === 'remove-duplicates') return removeDuplicateLines();
+    else if (action === 'trim-whitespace') return trimWhitespace();
+    else if (action === 'remove-blank-lines') return removeBlankLines();
+    else if (action === 'to-upper') return transformCase('upper');
+    else if (action === 'to-lower') return transformCase('lower');
+    else if (action === 'to-title') return transformCase('title');
+    else if (action === 'to-camel') return transformCase('camel');
+    else if (action === 'format-json') return formatJson(false);
+    else if (action === 'minify-json') return formatJson(true);
+    else if (action === 'base64-encode') return base64Convert(false);
+    else if (action === 'base64-decode') return base64Convert(true);
+    else if (action === 'url-encode') return urlConvert(false);
+    else if (action === 'url-decode') return urlConvert(true);
+    return false;
   }
 
   function toggleMacroRecording() {
@@ -2324,20 +2459,42 @@
     }
   }
 
+  // Phase 2 / P12 policy: stop at the first failed action, report the step
+  // index/action, keep earlier mutations recoverable with one Undo (the whole
+  // replay runs inside one editor.operation), restore the prior recording
+  // state on every path (try/finally) and never append replayed actions.
   function playMacro() {
     if (!macroActions.length) {
       showToast('No macro actions recorded yet');
       return;
     }
     const wasRecording = isRecordingMacro;
-    isRecordingMacro = false;
-    editor.operation(function() {
-      macroActions.forEach(function(action) {
-        runTextFxAction(action);
+    isRecordingMacro = false; // replay never records itself
+    let stepIndex = -1;
+    let failureCause = null;
+    try {
+      editor.operation(function() {
+        for (let i = 0; i < macroActions.length; i++) {
+          stepIndex = i;
+          if (!runTextFxAction(macroActions[i])) {
+            failureCause = 'the action reported an error';
+            break;
+          }
+        }
+        if (!failureCause) stepIndex = -1; // all steps completed
       });
-    });
-    isRecordingMacro = wasRecording;
-    showToast('Played macro (' + macroActions.length + ' steps)');
+    } catch (e) {
+      if (stepIndex === -1) stepIndex = macroActions.length - 1;
+      failureCause = 'unexpected exception: ' + ((e && e.message) || e);
+      logError('Macro', 'Macro replay failed at step ' + (stepIndex + 1) + ' of ' + macroActions.length + ': ' + ((e && e.message) || e), '');
+    } finally {
+      isRecordingMacro = wasRecording;
+    }
+    if (failureCause) {
+      showToast('Macro stopped at step ' + (stepIndex + 1) + ' of ' + macroActions.length + ' (' + String(macroActions[stepIndex]) + '); earlier steps are recoverable with one Undo');
+    } else {
+      showToast('Played macro (' + macroActions.length + ' steps)');
+    }
   }
 
   function sortLines(descending) {
@@ -2348,6 +2505,7 @@
     });
     applyTransformedText(range, lines.join('\n'));
     showToast('Lines sorted ' + (descending ? 'Z → A' : 'A → Z'));
+    return true;
   }
 
   function removeDuplicateLines() {
@@ -2364,6 +2522,7 @@
     const removedCount = lines.length - unique.length;
     applyTransformedText(range, unique.join('\n'));
     showToast('Removed ' + removedCount + ' duplicate line(s)');
+    return true;
   }
 
   function trimWhitespace() {
@@ -2371,6 +2530,7 @@
     const lines = range.text.split('\n').map(function(l) { return l.trim(); });
     applyTransformedText(range, lines.join('\n'));
     showToast('Trimmed leading & trailing whitespace');
+    return true;
   }
 
   function removeBlankLines() {
@@ -2378,6 +2538,7 @@
     const lines = range.text.split('\n').filter(function(l) { return l.trim().length > 0; });
     applyTransformedText(range, lines.join('\n'));
     showToast('Removed empty lines');
+    return true;
   }
 
   function transformCase(type) {
@@ -2399,6 +2560,7 @@
     }
     applyTransformedText(range, res);
     showToast('Case converted to ' + type);
+    return true;
   }
 
   function formatJson(minify) {
@@ -2408,9 +2570,11 @@
       const res = minify ? JSON.stringify(parsed) : JSON.stringify(parsed, null, tabSize);
       applyTransformedText(range, res);
       showToast(minify ? 'JSON minified' : 'JSON formatted');
+      return true;
     } catch (e) {
       logError('JSON', 'JSON Parse Error: ' + e.message, range.text.slice(0, 100));
       showToast('Invalid JSON: ' + e.message);
+      return false; // Phase 2 / P12: caught failures signal replay to stop
     }
   }
 
@@ -2431,9 +2595,11 @@
       }
       applyTransformedText(range, res);
       showToast(decode ? 'Base64 decoded (UTF-8)' : 'Base64 encoded (UTF-8)');
+      return true;
     } catch (e) {
       logError('Base64', e.message, range.text.slice(0, 80));
       showToast('Base64 error: ' + e.message);
+      return false; // Phase 2 / P12: caught failures signal replay to stop
     }
   }
 
@@ -2443,22 +2609,35 @@
       const res = decode ? decodeURIComponent(range.text) : encodeURIComponent(range.text);
       applyTransformedText(range, res);
       showToast(decode ? 'URL decoded' : 'URL encoded');
+      return true;
     } catch (e) {
       logError('URL', e.message, range.text.slice(0, 80));
       showToast('URL conversion error: ' + e.message);
+      return false; // Phase 2 / P12: caught failures signal replay to stop
     }
   }
 
   // --------------------------------------------------------------------------
   // Fix 3 & 4: Advanced Find & Replace Controller (with Extended \n & Zero-Width Guard)
   // --------------------------------------------------------------------------
+  // Phase 2 / P08: extended escapes parse strictly left-to-right, so a doubled
+  // backslash keeps the following character literal (\\n is a literal
+  // backslash followed by 'n', not a newline).
   function parseExtendedEscapes(str) {
-    return str
-      .replace(/\\n/g, '\n')
-      .replace(/\\r/g, '\r')
-      .replace(/\\t/g, '\t')
-      .replace(/\\0/g, '\0')
-      .replace(/\\\\/g, '\\');
+    let out = '';
+    for (let i = 0; i < str.length; i++) {
+      const c = str.charAt(i);
+      if (c === '\\' && i + 1 < str.length) {
+        const n = str.charAt(i + 1);
+        if (n === 'n') { out += '\n'; i++; continue; }
+        if (n === 'r') { out += '\r'; i++; continue; }
+        if (n === 't') { out += '\t'; i++; continue; }
+        if (n === '0') { out += '\0'; i++; continue; }
+        if (n === '\\') { out += '\\'; i++; continue; }
+      }
+      out += c;
+    }
+    return out;
   }
 
   function openFindDialog(showReplace) {
@@ -2481,6 +2660,77 @@
     editor.focus();
   }
 
+  // --------------------------------------------------------------------------
+  // Phase 2 / P06 + P08: one occurrence model shared by every consumer
+  // (single-tab count, forward/back navigation, Replace/Replace All,
+  // All Tabs and bookmark matches). Matching always runs against an immutable
+  // snapshot of the original document text; coordinates are zero-based
+  // CodeMirror {line, ch} positions (UTF-16 code units). Occurrences are
+  // non-overlapping, and replacement text is never searched again during one
+  // Replace All. Zero-width regex matches advance one code unit without
+  // skipping other positions on the same line (matchAll semantics).
+  // --------------------------------------------------------------------------
+  function comparePositions(a, b) {
+    if (a.line !== b.line) return a.line < b.line ? -1 : 1;
+    if (a.ch !== b.ch) return a.ch < b.ch ? -1 : 1;
+    return 0;
+  }
+
+  function findOccurrences(text, query) {
+    const src = String(text == null ? '' : text);
+    const lines = src.split('\n');
+    const lineStarts = new Array(lines.length);
+    let offset = 0;
+    for (let i = 0; i < lines.length; i++) {
+      lineStarts[i] = offset;
+      offset += lines[i].length + 1;
+    }
+
+    function toPos(index) {
+      let lo = 0, hi = lines.length - 1;
+      while (lo < hi) {
+        const mid = (lo + hi + 1) >> 1;
+        if (lineStarts[mid] <= index) lo = mid; else hi = mid - 1;
+      }
+      return { line: lo, ch: index - lineStarts[lo] };
+    }
+
+    const occurrences = [];
+    if (!query || query.type === 'invalid') return occurrences;
+
+    if (query.type === 'regex') {
+      const re = new RegExp(query.re.source, query.re.flags.indexOf('g') !== -1 ? query.re.flags : query.re.flags + 'g');
+      const matches = src.matchAll(re);
+      for (const m of matches) {
+        const from = toPos(m.index);
+        const to = toPos(m.index + m[0].length);
+        occurrences.push({
+          start: m.index, length: m[0].length, match: m,
+          line: from.line, ch: from.ch, endLine: to.line, endCh: to.ch,
+          text: lines[from.line] || ''
+        });
+      }
+    } else {
+      const needle = String(query.needle);
+      const hay = query.caseFold ? src.toLowerCase() : src;
+      const target = query.caseFold ? needle.toLowerCase() : needle;
+      if (target.length) {
+        let idx = hay.indexOf(target);
+        while (idx !== -1) {
+          const from = toPos(idx);
+          const to = toPos(idx + target.length);
+          occurrences.push({
+            start: idx, length: target.length, match: null,
+            line: from.line, ch: from.ch, endLine: to.line, endCh: to.ch,
+            text: lines[from.line] || ''
+          });
+          idx = hay.indexOf(target, idx + target.length);
+        }
+      }
+    }
+    return occurrences;
+  }
+
   function getSearchQuery() {
     let text = document.getElementById('frFindInput').value;
     if (!text) return null;
@@ -2498,18 +2748,21 @@
       try {
         let pattern = text;
         if (isWord) pattern = '\\b' + pattern + '\\b';
-        return new RegExp(pattern, isCase ? 'g' : 'gi');
+        // P08 contract: g for all occurrences, i for case folding; no implicit
+        // multiline flag — patterns can still express multiline matches via \n.
+        return { type: 'regex', re: new RegExp(pattern, isCase ? 'g' : 'gi'), literalReplacement: false };
       } catch (e) {
         logError('Regex', e.message, text);
-        return null;
+        return { type: 'invalid', message: e.message };
       }
-    } else {
-      if (isWord) {
-        const escaped = text.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-        return new RegExp('\\b' + escaped + '\\b', isCase ? 'g' : 'gi');
-      }
-      return { query: text, caseFold: !isCase };
     }
+    if (isWord) {
+      const escaped = escapeRegExp(text);
+      // Internal regex for whole-word occurrence semantics only; replacement
+      // text stays literal (P08: no accidental regex $-expansion).
+      return { type: 'regex', re: new RegExp('\\b' + escaped + '\\b', isCase ? 'g' : 'gi'), literalReplacement: true };
+    }
+    return { type: 'literal', needle: text, caseFold: !isCase };
   }
 
   function getReplaceString() {
@@ -2519,117 +2772,156 @@
   }
 
   function updateSearchResults() {
-    const query = getSearchQuery();
     const countEl = document.getElementById('frMatchesCount');
-    if (!query) {
-      countEl.textContent = 'No matches';
+    const query = getSearchQuery();
+    // B01: All-Tab rows must never outlive the query that produced them
+    invalidateSearchResults();
+    if (!query) { countEl.textContent = 'No query'; return; }
+    if (query.type === 'invalid') {
+      // P08: an invalid regex is distinct from a valid zero-result query
+      countEl.textContent = 'Invalid regex';
       return;
     }
-
-    let count = 0;
-    let cursor = editor.getSearchCursor(query.query ? query.query : query, { line: 0, ch: 0 }, query.caseFold);
-    while (cursor.findNext()) {
-      count++;
-      // Guard zero-width regex matches like ^ or $
-      const from = cursor.from();
-      const to = cursor.to();
-      if (from.line === to.line && from.ch === to.ch) {
-        if (from.line + 1 < editor.lineCount()) {
-          cursor = editor.getSearchCursor(query.query ? query.query : query, { line: from.line + 1, ch: 0 }, query.caseFold);
-        } else {
-          break;
-        }
-      }
-      if (count > 999) break;
-    }
-    countEl.textContent = count > 0 ? (count + (count > 999 ? '+' : '') + ' match' + (count === 1 ? '' : 'es')) : 'No matches';
+    const count = findOccurrences(editor.getValue(), query).length;
+    // P08: exact counts — no silent numeric cutoffs (the previous 999 cap
+    // misreported documents with more occurrences)
+    countEl.textContent = count === 0 ? 'No matches' : count + ' match' + (count === 1 ? '' : 'es');
   }
+
+  let lastZeroWidthFind = null; // P08: advance guard for zero-width navigation
 
   function findNext(reverse) {
     const query = getSearchQuery();
-    if (!query) return;
+    if (!query || query.type === 'invalid') return;
 
-    const searchTarget = query.query ? query.query : query;
-    const startPos = reverse ? editor.getCursor('from') : editor.getCursor('to');
-    let cursor = editor.getSearchCursor(searchTarget, startPos, query.caseFold);
-    let found = reverse ? cursor.findPrevious() : cursor.findNext();
+    const occurrences = findOccurrences(editor.getValue(), query);
+    if (!occurrences.length) { showToast('Phrase not found'); return; }
 
-    if (!found) {
-      cursor = editor.getSearchCursor(searchTarget, reverse ? { line: editor.lineCount(), ch: 0 } : { line: 0, ch: 0 }, query.caseFold);
-      found = reverse ? cursor.findPrevious() : cursor.findNext();
-    }
+    const isSameZeroWidth = function(o) {
+      return lastZeroWidthFind !== null &&
+        o.line === lastZeroWidthFind.line && o.ch === lastZeroWidthFind.ch &&
+        o.endLine === lastZeroWidthFind.endLine && o.endCh === lastZeroWidthFind.endCh;
+    };
 
-    if (found) {
-      editor.setSelection(cursor.from(), cursor.to());
-      editor.scrollIntoView({ from: cursor.from(), to: cursor.to() }, 60);
+    let target = null;
+    if (reverse) {
+      const fromPos = editor.getCursor('from');
+      for (let i = occurrences.length - 1; i >= 0; i--) {
+        if (comparePositions({ line: occurrences[i].line, ch: occurrences[i].ch }, fromPos) < 0) { target = occurrences[i]; break; }
+      }
+      if (!target) target = occurrences[occurrences.length - 1];
     } else {
-      showToast('Phrase not found');
+      const toPos = editor.getCursor('to');
+      for (let i = 0; i < occurrences.length; i++) {
+        const o = occurrences[i];
+        if (comparePositions({ line: o.line, ch: o.ch }, toPos) < 0) continue;
+        if (isSameZeroWidth(o)) continue; // do not re-find the zero-width match at the cursor
+        target = o; break;
+      }
+      if (!target) {
+        target = occurrences.find(function(o) { return !isSameZeroWidth(o); }) || occurrences[0];
+      }
     }
+    lastZeroWidthFind = target.length === 0
+      ? { line: target.line, ch: target.ch, endLine: target.endLine, endCh: target.endCh }
+      : null;
+    editor.setSelection({ line: target.line, ch: target.ch }, { line: target.endLine, ch: target.endCh });
+    editor.scrollIntoView({ from: { line: target.line, ch: target.ch }, to: { line: target.endLine, ch: target.endCh } }, 60);
+  }
+
+  // Exact JavaScript String.replace substitution-token semantics for one
+  // known match: $$, $&, $`, $', $1..$99, $<name>.
+  function expandRegexReplacement(occ, src, replacement) {
+    return String(replacement).replace(/\$(\$|&|`|'|<[^>]*>|\d{1,2})/g, function(all, tok) {
+      if (tok === '$') return '$';
+      if (tok === '&') return occ.match[0];
+      if (tok === '`') return src.slice(0, occ.start);
+      if (tok === "'") return src.slice(occ.start + occ.length);
+      if (tok.charAt(0) === '<') {
+        const name = tok.slice(1, -1);
+        if (occ.match.groups && Object.prototype.hasOwnProperty.call(occ.match.groups, name)) {
+          const g = occ.match.groups[name];
+          return g === undefined ? '' : g;
+        }
+        return all; // no such named group: kept literal, per JS semantics
+      }
+      if (tok.length === 2 && occ.match[parseInt(tok, 10)] === undefined) {
+        // $10 with no group 10: JS falls back to group 1 plus a literal '0'
+        const g1 = occ.match[parseInt(tok.charAt(0), 10)];
+        return (g1 === undefined ? '' : g1) + tok.charAt(1);
+      }
+      const g = occ.match[parseInt(tok, 10)];
+      return g === undefined ? '' : g;
+    });
+  }
+
+  function buildLiteralReplacement(src, occurrences, replaceText) {
+    // One pass over the immutable snapshot; inserted text is never searched
+    // again (P08: replacing 'a' with 'aa' on 'a' is exactly one replacement).
+    let out = '';
+    let last = 0;
+    occurrences.forEach(function(o) {
+      out += src.slice(last, o.start);
+      out += replaceText;
+      last = o.start + o.length;
+    });
+    out += src.slice(last);
+    return out;
   }
 
   function replaceMatch() {
-    const replaceText = getReplaceString();
     const query = getSearchQuery();
-    if (!query) return;
+    if (!query || query.type === 'invalid') return;
+    const replaceText = getReplaceString();
 
-    const sel = editor.getSelection();
-    if (sel) {
-      const isRegex = document.getElementById('frRegexBtn').classList.contains('active');
-      if (isRegex && query instanceof RegExp) {
-        const testRe = new RegExp('^(?:' + query.source + ')$', query.ignoreCase ? 'i' : '');
-        if (testRe.test(sel)) {
-          editor.replaceSelection(sel.replace(testRe, replaceText));
-          findNext(false);
-          updateSearchResults();
-          return;
-        }
-      } else {
-        const target = query.query !== undefined ? query.query : '';
-        const matches = query.caseFold ? (sel.toLowerCase() === target.toLowerCase()) : (sel === target);
-        if (matches) {
-          editor.replaceSelection(replaceText);
-          findNext(false);
-          updateSearchResults();
-          return;
-        }
-      }
+    const selFrom = editor.getCursor('from');
+    const selTo = editor.getCursor('to');
+    const occurrences = findOccurrences(editor.getValue(), query);
+    // P08: a selection is replaceable only when it IS a valid occurrence of
+    // the current query in full-document context — selecting 'cat' inside
+    // 'scatter' is not a valid whole-word replacement.
+    const target = occurrences.find(function(o) {
+      return o.line === selFrom.line && o.ch === selFrom.ch &&
+             o.endLine === selTo.line && o.endCh === selTo.ch;
+    });
+    if (target) {
+      const replacement = (query.type === 'regex' && !query.literalReplacement)
+        ? expandRegexReplacement(target, editor.getValue(), replaceText)
+        : replaceText;
+      editor.replaceSelection(replacement);
     }
     findNext(false);
+    updateSearchResults();
   }
 
-  // Fix 3: Guard Replace All against zero-width regex infinite loops
   function replaceAllMatches() {
-    const replaceText = getReplaceString();
     const query = getSearchQuery();
-    if (!query) return;
+    if (!query || query.type === 'invalid') return;
+    const replaceText = getReplaceString();
+    const src = editor.getValue();
+    const occurrences = findOccurrences(src, query);
 
-    const isRegex = document.getElementById('frRegexBtn').classList.contains('active');
-    if (isRegex && query instanceof RegExp) {
-      const src = editor.getValue();
-      const matches = src.match(query);
-      const count = matches ? matches.length : 0;
-      if (count > 0) {
-        const cur = editor.getCursor();
-        editor.setValue(src.replace(query, replaceText));
+    let newText = null;
+    if (occurrences.length) {
+      if (query.type === 'regex' && !query.literalReplacement) {
+        // Exact JS String.replace semantics ($$, $&, $`, $', $n, $<name>);
+        // the engine also advances zero-width matches safely (P2-07)
+        const re = new RegExp(query.re.source, query.re.flags);
+        newText = src.replace(re, replaceText);
+      } else {
+        // Literal replacement (including whole-word literal mode): no
+        // $-expansion, non-overlapping single pass (P2-16), no silent
+        // 10,000 cutoff — counts and replacements are exact.
+        newText = buildLiteralReplacement(src, occurrences, replaceText);
+      }
+      const cur = editor.getCursor();
+      editor.operation(function() {
+        editor.setValue(newText); // one logical undoable operation (P13)
         editor.setCursor(cur);
-      }
-      updateSearchResults();
-      showToast('Replaced ' + count + ' occurrences');
-      return;
+      });
     }
-
-    const searchTarget = query.query ? query.query : query;
-    let count = 0;
-    editor.operation(function() {
-      const cursor = editor.getSearchCursor(searchTarget, { line: 0, ch: 0 }, query.caseFold);
-      while (cursor.findNext()) {
-        cursor.replace(replaceText);
-        count++;
-        if (count > 10000) break;
-      }
-    });
     updateSearchResults();
-    showToast('Replaced ' + count + ' occurrences');
+    showToast('Replaced ' + occurrences.length + ' occurrence' + (occurrences.length === 1 ? '' : 's'));
   }
 
   // --------------------------------------------------------------------------
@@ -2701,25 +2993,20 @@
       showToast('Enter a search query first (Ctrl+F)');
       return;
     }
-    const searchTarget = query.query ? query.query : query;
-    const lines = editor.getValue().split('\n');
+    if (query.type === 'invalid') {
+      showToast('Invalid regex');
+      return;
+    }
+    // P06/P08: bookmark lines from the shared occurrence model, so Mark Lines
+    // agrees with count/navigation/All-Tabs semantics
+    const occurrences = findOccurrences(editor.getValue(), query);
+    const markedLines = new Set(occurrences.map(function(o) { return o.line; }));
     let marked = 0;
-    lines.forEach(function(lineText, idx) {
-      let found = false;
-      if (query instanceof RegExp) {
-        const re = new RegExp(query.source, query.flags.includes('g') ? query.flags : query.flags + 'g');
-        found = re.test(lineText);
-      } else {
-        found = query.caseFold
-          ? lineText.toLowerCase().includes(searchTarget.toLowerCase())
-          : lineText.includes(searchTarget);
-      }
-      if (found) {
-        const info = editor.lineInfo(idx);
-        if (!info.gutterMarkers || !info.gutterMarkers['CodeMirror-bookmarks']) {
-          editor.setGutterMarker(idx, 'CodeMirror-bookmarks', makeBookmarkMarker());
-          marked++;
-        }
+    markedLines.forEach(function(line) {
+      const info = editor.lineInfo(line);
+      if (info && (!info.gutterMarkers || !info.gutterMarkers['CodeMirror-bookmarks'])) {
+        editor.setGutterMarker(line, 'CodeMirror-bookmarks', makeBookmarkMarker());
+        marked++;
       }
     });
     const tab = getActiveTab();
@@ -2755,11 +3042,22 @@
     editor.operation(function() {
       for (let i = bookmarks.length - 1; i >= 0; i--) {
         const line = bookmarks[i];
-        editor.replaceRange('', { line: line, ch: 0 }, { line: line + 1, ch: 0 });
+        // Phase 2 / P13: delete the line together with its separating newline.
+        // The previous {line + 1} end position was out of bounds for the last
+        // line, which deleted only the text and left the line and its marker.
+        if (line + 1 < editor.lineCount()) {
+          editor.replaceRange('', { line: line, ch: 0 }, { line: line + 1, ch: 0 });
+        } else if (line > 0) {
+          const prevEnd = editor.getLine(line - 1).length;
+          editor.replaceRange('', { line: line - 1, ch: prevEnd }, { line: line, ch: editor.getLine(line).length });
+        } else {
+          editor.replaceRange('', { line: 0, ch: 0 }, { line: 0, ch: editor.getLine(0).length });
+        }
       }
     });
     const tab = getActiveTab();
     if (tab) tab.bookmarks = [];
+    lastEditorLineCount = editor.lineCount();
     scheduleSave();
     showToast('Deleted ' + bookmarks.length + ' bookmarked line' + (bookmarks.length === 1 ? '' : 's') + ' (Ctrl+Z restores all)');
   }
@@ -2783,17 +3081,6 @@
     return str.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
   }
 
-  function lineMatchesQuery(lineText, query) {
-    if (query instanceof RegExp) {
-      const re = new RegExp(query.source, query.flags.includes('g') ? query.flags : query.flags + 'g');
-      return re.test(lineText);
-    }
-    const target = query.query !== undefined ? query.query : query;
-    return query.caseFold
-      ? lineText.toLowerCase().includes(String(target).toLowerCase())
-      : lineText.includes(target);
-  }
-
   function findInAllOpenTabs() {
     const activeTab = getActiveTab();
     if (activeTab && editor) activeTab.content = editor.getValue();
@@ -2803,29 +3090,18 @@
       showToast('Enter a search query first');
       return;
     }
+    if (query.type === 'invalid') {
+      showToast('Invalid regex');
+      return;
+    }
 
+    // P06: All Tabs uses the same occurrence model as the single-tab count —
+    // every occurrence on every line is reported, not one hit per line.
     const results = [];
     tabs.forEach(function(tab) {
-      const lines = (tab.content || '').split('\n');
-      const matches = [];
-      lines.forEach(function(lineText, lineIdx) {
-        let matchCol = -1;
-        if (query instanceof RegExp) {
-          const re = new RegExp(query.source, query.flags.replace('g', ''));
-          const m = lineText.match(re);
-          if (m) matchCol = m.index;
-        } else {
-          const target = query.query !== undefined ? query.query : query;
-          matchCol = query.caseFold
-            ? lineText.toLowerCase().indexOf(String(target).toLowerCase())
-            : lineText.indexOf(target);
-        }
-        if (matchCol !== -1) {
-          matches.push({ line: lineIdx, ch: matchCol, text: lineText });
-        }
-      });
-      if (matches.length) {
-        results.push({ tabId: tab.id, fileName: tab.name, matches: matches });
+      const occurrences = findOccurrences(tab.content || '', query);
+      if (occurrences.length) {
+        results.push({ tabId: tab.id, fileName: tab.name, matches: occurrences });
       }
     });
 
@@ -2855,25 +3131,18 @@
     }
     if (statusText) statusText.textContent = 'Search: ' + totalHits;
 
+    if (!listEl) return;
+    // B01: every render fully replaces the previous result set — groups and
+    // rows alike; nothing accumulates across searches and Clear removes all
+    // stale click targets.
+    listEl.innerHTML = '';
     if (!results.length) {
       if (emptyEl) emptyEl.style.display = 'block';
-      if (listEl) listEl.querySelectorAll('.search-results-group').forEach(function(g) { g.remove(); });
       return;
     }
     if (emptyEl) emptyEl.style.display = 'none';
-    if (!listEl) return;
 
-    listEl.querySelectorAll('.search-results-group').forEach(function(g) { g.remove(); });
-
-    const query = getSearchQuery();
-    let hitRe = null;
-    if (query instanceof RegExp) {
-      hitRe = new RegExp('(' + query.source + ')', query.flags.replace('g', ''));
-    } else if (query) {
-      const target = query.query !== undefined ? query.query : query;
-      hitRe = new RegExp('(' + escapeRegExp(String(target)) + ')', query.caseFold ? 'i' : '');
-    }
-
+    const CONTEXT = 60; // excerpt half-window around the hit (P2-13)
     results.forEach(function(group) {
       const groupEl = document.createElement('div');
       groupEl.className = 'search-results-group';
@@ -2883,21 +3152,41 @@
       group.matches.forEach(function(match) {
         const row = document.createElement('div');
         row.className = 'search-result-row';
-        const snippet = match.text.slice(0, 200);
-        let html = '<span class="search-result-line">Line ' + (match.line + 1) + ':</span> ';
-        if (hitRe) {
-          html += escapeHtml(snippet).replace(hitRe, '<span class="search-result-hit">$1</span>');
-        } else {
-          html += escapeHtml(snippet);
+
+        const lineLabel = document.createElement('span');
+        lineLabel.className = 'search-result-line';
+        lineLabel.textContent = 'Line ' + (match.line + 1) + ': ';
+        row.appendChild(lineLabel);
+
+        // P07: the snippet is built from source text via text nodes and the
+        // highlight comes from the match range — the query never runs over
+        // escaped entities and source text is never parsed as HTML/JS.
+        const lineText = match.text || '';
+        const hitEndInLine = match.endLine === match.line
+          ? Math.min(match.endCh, lineText.length)
+          : lineText.length;
+        const ctxStart = Math.max(0, match.ch - CONTEXT);
+        const ctxEnd = Math.min(lineText.length, hitEndInLine + CONTEXT);
+        if (ctxStart > 0) row.appendChild(document.createTextNode('…'));
+        row.appendChild(document.createTextNode(lineText.slice(ctxStart, match.ch)));
+        if (hitEndInLine > match.ch) {
+          const hit = document.createElement('span');
+          hit.className = 'search-result-hit';
+          hit.textContent = lineText.slice(match.ch, hitEndInLine);
+          row.appendChild(hit);
         }
-        row.innerHTML = html;
+        row.appendChild(document.createTextNode(lineText.slice(hitEndInLine, ctxEnd)));
+        if (ctxEnd < lineText.length) row.appendChild(document.createTextNode('…'));
+
+        // True original coordinates, independent of excerpt truncation (P2-13);
+        // identity is the tab ID, so duplicate filenames are safe.
         row.title = group.fileName + ' line ' + (match.line + 1);
-        row.onclick = function() {
+        row.addEventListener('click', function() {
           selectTab(group.tabId);
-          editor.setCursor({ line: match.line, ch: match.ch });
+          editor.setSelection({ line: match.line, ch: match.ch }, { line: match.endLine, ch: match.endCh });
           editor.scrollIntoView({ line: match.line, ch: match.ch }, 80);
           editor.focus();
-        };
+        });
         listEl.appendChild(row);
       });
     });
@@ -2910,6 +3199,15 @@
     const shouldOpen = typeof force === 'boolean' ? force : !isOpen;
     drawer.style.display = shouldOpen ? 'flex' : 'none';
     if (editor) requestAnimationFrame(function() { editor.refresh(); });
+  }
+
+  // Phase 2 / B01: previously computed results must never appear current
+  // after content, query or document-identity changes. Invalidation clears
+  // groups and rows together and reports a truthful zero.
+  function invalidateSearchResults() {
+    if (!searchResults.length) return;
+    searchResults = [];
+    renderSearchResults([]);
   }
 
   function clearSearchResults() {
