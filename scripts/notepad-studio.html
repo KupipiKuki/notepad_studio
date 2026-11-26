@@ -3548,8 +3548,16 @@ function calculateChecksum(payload) {
       infos.push('File decoded as UTF-16BE (byte-order mark detected); saved files are UTF-8.');
     } else if (bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) {
       // Keep the BOM as part of the document so saves reproduce the original
-      // byte prefix instead of silently dropping it on read.
-      text = '\uFEFF' + new TextDecoder('utf-8').decode(bytes.subarray(3));
+      // byte prefix instead of silently dropping it on read. The body must be
+      // validated too: invalid UTF-8 after a BOM is still a lossy decode and
+      // must produce the same data-loss warning as any other payload.
+      const body = bytes.subarray(3);
+      try {
+        text = '\uFEFF' + new TextDecoder('utf-8', { fatal: true }).decode(body);
+      } catch (e) {
+        text = '\uFEFF' + new TextDecoder('utf-8').decode(body);
+        warnings.push('File contained bytes that are not valid UTF-8; they are shown as U+FFFD and re-saving will not reproduce the original bytes.');
+      }
       infos.push('UTF-8 byte-order mark detected; it is preserved in the document and in saves.');
     } else {
       try {

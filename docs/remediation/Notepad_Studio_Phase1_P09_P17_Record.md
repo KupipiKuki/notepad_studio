@@ -68,3 +68,21 @@ Windows 11, Node v24.20.0, Playwright 1.65.1.
 | `tests/phase1-split-encoding.spec.js` | New: 7 committed regressions (P09 ×2, P17 ×5) |
 | `.github/workflows/playwright.yml` | Run both committed specs on chromium+firefox |
 | `docs/remediation/Notepad_Studio_Phase1_P09_P17_Record.md` | This record |
+
+## 7. P17 hold follow-up (auditor-identified gap)
+
+Follow-up date: November 26, 2026 (America/New_York). The auditor held the P17 acceptance on `649b771`: the BOM-prefixed UTF-8 branch decoded non-fatally, so invalid UTF-8 after a BOM bypassed the data-loss warning, and no regression covered that fixture.
+
+### Correction in `scripts/notepad-studio.html`
+
+- The UTF-8 BOM branch of `decodeFileBuffer` now validates the body with `TextDecoder('utf-8', { fatal: true })` before decoding. On failure it falls back to the placeholder decode and emits the same "bytes that are not valid UTF-8 … re-saving will not reproduce the original bytes" warning as the general UTF-8 path. The BOM itself is still preserved.
+
+### Correction in `tests/phase1-split-encoding.spec.js`
+
+- New regression `P17: invalid UTF-8 after a BOM still triggers the data-loss warning`: fixture `EF BB BF | 63 61 66 E9 0A` (UTF-8 BOM + "caf" + Latin-1 E9 + LF). Asserts the BOM is preserved in the document, the invalid byte is decoded as U+FFFD **with** the "not valid UTF-8" toast and a durable error-log entry, and the save re-exports the advertised loss exactly (`EF BB BF | caf-EF BF BD-LF`, LF selected).
+
+### Verification performed
+
+- Regression validity: the new test **fails against the committed pre-fix app** (observed: no warning, the BOM branch bypassed it) and passes with the correction.
+- Full committed suite, both specs, the exact CI command: **46 passed / 0 failed / 0 skipped** (23 scenarios × 2 browsers, 22 previous + this regression).
+- Configured CI (`ubuntu-latest`) reran on push of this batch (run link recorded in the follow-up commit).

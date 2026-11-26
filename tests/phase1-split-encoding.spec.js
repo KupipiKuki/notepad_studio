@@ -204,6 +204,41 @@ test('P17: invalid UTF-8 bytes are reported and re-exported with the stated loss
 });
 
 // ---------------------------------------------------------------------------
+// P17 (hold follow-up): a BOM does not license a silent lossy decode — invalid
+// UTF-8 after a UTF-8 BOM must produce the same data-loss warning, and the
+// re-export must be asserted as the advertised loss
+// ---------------------------------------------------------------------------
+
+test('P17: invalid UTF-8 after a BOM still triggers the data-loss warning', async ({ page, context }) => {
+  const baseUrl = await startHttpApp();
+  const errors = await openApp(page, context, mkState([mkTab('a', 'seed')], 'LF'), null, baseUrl);
+  const input = Buffer.concat([
+    Buffer.from([0xEF, 0xBB, 0xBF]),
+    Buffer.from([0x63, 0x61, 0x66, 0xE9, 0x0A]) // "caf" + Latin-1 E9 + LF
+  ]);
+  await page.locator('#fileInput').setInputFiles({ name: 'utf8bom-invalid.txt', mimeType: 'text/plain', buffer: input });
+  await page.waitForTimeout(300);
+
+  const text = await getValue(page);
+  expect(text.charCodeAt(0)).toBe(0xFEFF); // BOM still preserved
+  expect(text.slice(1)).toBe('caf\uFFFD\n');
+  const toast = await page.evaluate(() => document.querySelector('#toastMessage').textContent);
+  expect(toast).toContain('not valid UTF-8'); // the loss is reported, not bypassed
+  await expect(page.locator('#statusErrorText')).not.toHaveText('0 Errors');
+
+  const pendingDownload = page.waitForEvent('download');
+  await page.locator('#btnSaveFile').click();
+  const download = await pendingDownload;
+  const written = fs.readFileSync(await download.path());
+  // The advertised loss: BOM kept, E9 replaced by U+FFFD (EF BF BD)
+  expect([...written]).toEqual([...Buffer.concat([
+    Buffer.from([0xEF, 0xBB, 0xBF]),
+    Buffer.from('caf\uFFFD\n', 'utf8')
+  ])]);
+  expect(errors).toEqual([]);
+});
+
+// ---------------------------------------------------------------------------
 // P17: apparent binary files must open with an explicit warning
 // ---------------------------------------------------------------------------
 
